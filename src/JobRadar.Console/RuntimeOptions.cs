@@ -1,4 +1,4 @@
-namespace JobRadar.Console;
+namespace JobRadar.App;
 
 public sealed class RuntimeOptions
 {

@@ -2,7 +2,7 @@ using JobRadar.Core.Config;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
-namespace JobRadar.Console.Config;
+namespace JobRadar.App.Config;
 
 public static class ConfigLoader
 {
