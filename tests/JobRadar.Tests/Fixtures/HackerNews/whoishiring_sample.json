@@ -1,0 +1,62 @@
+{
+  "thread": {
+    "by": "whoishiring",
+    "descendants": 329,
+    "id": 47975571,
+    "kids": [
+      47975944,
+      47977422,
+      47975772
+    ],
+    "score": 288,
+    "text": "Please state the location and include REMOTE for remote work, REMOTE (US)\nor similar if the country is restricted, and ONSITE when remote work is <i>not</i> an option.<p>Please only post if you personally are part of the hiring company\u2014no\nrecruiting firms or job boards. One post per company. If it isn&#x27;t a household name,\nexplain what your company does.<p>Please only post if you are actively filling a position and are committed\nto replying to applicants.<p>Commenters: please don&#x27;t reply to job posts to complain about\nsomething. It&#x27;s off topic here.<p>Readers: please only email if you are personally interested in the job.<p>Searchers: try <a href=\"https:&#x2F;&#x2F;nthesis.ai&#x2F;public&#x2F;hn-who-is-hiring\" rel=\"nofollow\">https:&#x2F;&#x2F;nthesis.ai&#x2F;public&#x2F;hn-who-is-hiring</a>, <a href=\"https:&#x2F;&#x2F;dheerajck.github.io&#x2F;hnwhoishiring&#x2F;\" rel=\"nofollow\">https:&#x2F;&#x2F;dheerajck.github.io&#x2F;hnwhoishiring&#x2F;</a>, <a href=\"http:&#x2F;&#x2F;nchelluri.github.io&#x2F;hnjobs&#x2F;\" rel=\"nofollow\">http:&#x2F;&#x2F;nchelluri.github.io&#x2F;hnjobs&#x2F;</a>,\n<a href=\"https:&#x2F;&#x2F;hnjobs.emilburzo.com\" rel=\"nofollow\">https:&#x2F;&#x2F;hnjobs.emilburzo.com</a>, or this (unofficial) Chrome extension:\n<a href=\"https:&#x2F;&#x2F;chromewebstore.google.com&#x2F;detail&#x2F;hn-hiring-pro&#x2F;mpfaljjblphnlloddaplgicpkinikjlp\" rel=\"nofollow\">https:&#x2F;&#x2F;chromewebstore.google.com&#x2F;detail&#x2F;hn-hiring-pro&#x2F;mpfal...</a>.<p>Don&#x27;t miss this other fine thread: <i>Who wants to be hired?</i> <a href=\"https:&#x2F;&#x2F;news.ycombinator.com&#x2F;item?id=47975570\">https:&#x2F;&#x2F;news.ycombinator.com&#x2F;item?id=47975570</a>",
+    "time": 1777647607,
+    "title": "Ask HN: Who is hiring? (May 2026)",
+    "type": "story"
+  },
+  "comments": [
+    {
+      "by": "katee",
+      "id": 47975944,
+      "kids": [
+        47985652,
+        47981524,
+        47977756,
+        47977132,
+        47979591,
+        47984029,
+        47978701,
+        47979930,
+        47981882,
+        47980238
+      ],
+      "parent": 47975571,
+      "text": "Project Debug | General Engineer | Singapore (HYBRID) | Full-time | debug.com<p>Project Debug raises, sorts by sex, and releases millions of (non-biting) male mosquitoes in Singapore to reduce the local mosquito population and prevent the spread of dengue and other mosquito-borne illnesses. Our trial in Fresno, CA showed a 95% reduction in female mosquitoes during the seasonal peak.<p>Our engineering team is pretty small and we need a solid generalist engineer who is interested in becoming a domain expert in our factory, where we do automated rearing and sex sorting. If you run a homelab, have tinkered with Arduino, and can prompt&#x2F;write some Python, we can teach you everything you need to know about our stack (Go, Python, React, Kubernetes, Tensorflow).<p>Reach out to katejm@debugproject.com and please mention HN in your email.",
+      "time": 1777649401,
+      "type": "comment"
+    },
+    {
+      "by": "rossng",
+      "id": 47977422,
+      "kids": [
+        47996637,
+        47983948
+      ],
+      "parent": 47975571,
+      "text": "MONUMENTAL | <a href=\"https:&#x2F;&#x2F;www.monumental.co&#x2F;\" rel=\"nofollow\">https:&#x2F;&#x2F;www.monumental.co&#x2F;</a> | Amsterdam, The Netherlands | Full Time | Onsite<p>We make robots that autonomously construct buildings. We are currently developing and manufacturing our autonomous bricklaying system in the beautiful centre of Amsterdam. And our robots are already earning real revenue operating on construction sites all over the Netherlands.<p>We&#x27;re looking for experienced software engineers for many roles. You can help us solve problems like:<p>- Data sync and analytics queries across a fleet of robots (that can be offline for hours at a time)<p>- Modelling buildings in code and finding the right UI for operators to edit them<p>- Designing systems for robots to drive safely and fully autonomously around a building site<p>Check out the progress we&#x27;ve already made on Atrium, our operating system for robotics: <a href=\"https:&#x2F;&#x2F;www.monumental.co&#x2F;atrium\" rel=\"nofollow\">https:&#x2F;&#x2F;www.monumental.co&#x2F;atrium</a><p>We&#x27;re rapidly scaling up operations and we need experienced engineers who can build the systems that manage all of that complexity. If you think that &#x27;full-stack&#x27; could reasonably mean debugging firmware, mixing buckets of mortar _and_ writing React components, we are looking for you. Robotics experience not required!<p><a href=\"https:&#x2F;&#x2F;www.monumental.co&#x2F;jobs\" rel=\"nofollow\">https:&#x2F;&#x2F;www.monumental.co&#x2F;jobs</a>",
+      "time": 1777656163,
+      "type": "comment"
+    },
+    {
+      "by": "uczekalla",
+      "id": 47975772,
+      "kids": [
+        47984074
+      ],
+      "parent": 47975571,
+      "text": "CodeWeavers | St Paul, MN, USA | Full Time | REMOTE | Wine and General Open Source Developers | C-language systems programming<p><a href=\"https:&#x2F;&#x2F;www.codeweavers.com&#x2F;about&#x2F;jobs\" rel=\"nofollow\">https:&#x2F;&#x2F;www.codeweavers.com&#x2F;about&#x2F;jobs</a><p>CodeWeavers needs new, full-time developers to improve Wine&#x27;s ability to run games and other types of software and integrate well with the native operating system and other system components. Positions are available to work on a variety of Wine-based software, including CodeWeavers&#x27;s own CrossOver product; the Proton project for Valve Software; and projects for other clients and software internal to CodeWeavers.<p>We are hiring remote programmers, US or international, as well as workers local to Saint Paul, Minnesota. We will consider relocation, if desired, on a case-by-case basis. Please see link above for information, benefits, requirements, and how to apply.<p>Please direct any questions to the email address on our Jobs page.",
+      "time": 1777648493,
+      "type": "comment"
+    }
+  ]
+}
