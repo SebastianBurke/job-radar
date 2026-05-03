@@ -1,0 +1,127 @@
+# Target companies for the ATS-API sources.
+#
+# Each entry: { name, region, ats, token, notes? }
+#
+#   ats:    greenhouse | lever | ashby | workable | unknown
+#   token:  the company slug used by the ATS API
+#           - Greenhouse: visit boards.greenhouse.io/{token} or look at
+#             the network call from the company's careers page
+#           - Lever:      visit jobs.lever.co/{company}; the URL slug is the token
+#           - Ashby:      jobs.ashbyhq.com/{org}
+#           - Workable:   apply.workable.com/{account}
+#   region: ca-mtl | ca-ott | ca | es-mad | es-bcn | es | global | remote
+#
+# How to verify the ATS for any company:
+#   1. Open their careers page.
+#   2. Click a job posting. Look at the URL.
+#      - boards.greenhouse.io/...        → Greenhouse, token = next path segment
+#      - jobs.lever.co/...               → Lever, token = next path segment
+#      - jobs.ashbyhq.com/...            → Ashby, org = next path segment
+#      - apply.workable.com/...          → Workable, account = next path segment
+#      - Their own domain (e.g. /careers) → check view-source for an iframe
+#        pointing to one of the above, or check the network tab for an XHR
+#        to one of those domains.
+#   3. If none of the above, mark `ats: unknown` and skip for now — don't scrape.
+#
+# This list is a starting point. Verify each entry before relying on it.
+
+companies:
+
+  # === Canada — Montréal ===
+  - name: Lightspeed Commerce
+    region: ca-mtl
+    ats: unknown
+    token: ?
+  - name: Coveo
+    region: ca-mtl
+    ats: unknown
+    token: ?
+  - name: Hopper
+    region: ca-mtl
+    ats: unknown
+    token: ?
+  - name: Nuvei
+    region: ca-mtl
+    ats: unknown
+    token: ?
+  - name: GSoft
+    region: ca-mtl
+    ats: unknown
+    token: ?
+  - name: Genetec
+    region: ca-mtl
+    ats: unknown
+    token: ?
+
+  # === Canada — Ottawa / federal-adjacent ===
+  - name: Shopify
+    region: ca
+    ats: unknown
+    token: ?
+    notes: Has Ottawa hub; mostly remote-Canada postings.
+  - name: Calian Group
+    region: ca-ott
+    ats: unknown
+    token: ?
+  - name: Klipfolio
+    region: ca-ott
+    ats: unknown
+    token: ?
+  - name: CGI
+    region: ca
+    ats: unknown
+    token: ?
+    notes: Federal contractor; many Ottawa roles.
+
+  # === Spain — Madrid / Barcelona ===
+  - name: Glovo
+    region: es-bcn
+    ats: unknown
+    token: ?
+  - name: Cabify
+    region: es-mad
+    ats: unknown
+    token: ?
+  - name: Idealista
+    region: es-mad
+    ats: unknown
+    token: ?
+  - name: Wallapop
+    region: es-bcn
+    ats: unknown
+    token: ?
+  - name: Plain Concepts
+    region: es
+    ats: unknown
+    token: ?
+    notes: Microsoft Gold Partner; .NET-heavy stack.
+  - name: Tokiota
+    region: es-mad
+    ats: unknown
+    token: ?
+    notes: Microsoft consultancy.
+  - name: Sngular
+    region: es
+    ats: unknown
+    token: ?
+
+  # === Global / remote-friendly with strong .NET footprint ===
+  - name: GitLab
+    region: remote
+    ats: unknown
+    token: ?
+  - name: Automattic
+    region: remote
+    ats: unknown
+    token: ?
+  - name: Zapier
+    region: remote
+    ats: unknown
+    token: ?
+
+# First Claude Code task using this file:
+#   "For every company in config/companies.yml with ats: unknown, visit their
+#    careers page and identify which ATS they use (Greenhouse, Lever, Ashby,
+#    or Workable). Update the ats and token fields. If the ATS is none of
+#    those, leave ats: unknown and add a note. Do not scrape — only inspect
+#    the public careers page URLs and obvious iframe sources."

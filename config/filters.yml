@@ -1,0 +1,61 @@
+# Filter configuration — applied before any posting hits the Claude API.
+# Keep these conservative: better to send a borderline posting to the scorer
+# than to miss a strong match because of a too-strict regex.
+
+# A posting must match at least one of these (case-insensitive, word-boundary).
+keywords_required:
+  - .net
+  - "c#"
+  - dotnet
+  - asp.net
+  - blazor
+  - full stack
+  - fullstack
+  - software engineer
+  - software developer
+  - backend developer
+  - ".net developer"
+  - ".net engineer"
+
+# A posting's location string must contain at least one of these.
+location_allow:
+  - montreal
+  - montréal
+  - ottawa
+  - quebec
+  - québec
+  - ontario
+  - canada
+  - spain
+  - españa
+  - madrid
+  - barcelona
+  - valencia
+  - sevilla
+  - remote
+  - worldwide
+  - emea
+  - europe
+  - latam
+
+# A posting matching any of these is dropped before scoring.
+location_deny_phrases:
+  - "us only"
+  - "u.s. only"
+  - "united states only"
+  - "must reside in the us"
+  - "must reside in the united states"
+  - "us citizens only"
+  - "u.s. citizens only"
+  - "us work authorization required"
+  - "must be authorized to work in the united states"
+  - "h1b"
+  - "h-1b"
+  - "tn visa"
+  - "active us security clearance"
+  - "secret clearance required"
+  - "ts/sci"
+
+# Cost guard: max postings per run that may be sent to the Claude API.
+# If exceeded, the run aborts with an error.
+max_scoring_calls_per_run: 200
