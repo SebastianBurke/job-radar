@@ -2,6 +2,7 @@ using JobRadar.App;
 using JobRadar.App.Config;
 using JobRadar.Core.Abstractions;
 using JobRadar.Core.Config;
+using JobRadar.Core.Models;
 using JobRadar.Notify;
 using JobRadar.Scoring;
 using JobRadar.Sources;
@@ -13,6 +14,25 @@ using Microsoft.Extensions.Logging;
 
 var repoRoot = RepoPaths.FindRepoRoot();
 var options = RuntimeOptions.FromArgs(args, repoRoot);
+
+if (!string.IsNullOrEmpty(options.UsageError))
+{
+    Console.Error.WriteLine(options.UsageError);
+    Console.Error.WriteLine();
+    Console.Error.WriteLine(RuntimeOptions.Usage);
+    return 2;
+}
+
+// Modes that don't need the full pipeline / scorer / notifier short-circuit early.
+if (options.Mode is RunMode.MarkApplied or RunMode.Dismiss)
+{
+    var appliedYamlPath = Path.Combine(repoRoot, "data", "applied.yml");
+    var bucket = options.Mode == RunMode.MarkApplied ? "applied" : "dismissed";
+    AppliedYamlStore.Append(appliedYamlPath, bucket, options.TargetUrl!, options.Note, DateTimeOffset.UtcNow);
+    Console.WriteLine($"Recorded {bucket}: {options.TargetUrl}");
+    Console.WriteLine($"Wrote {appliedYamlPath}. Commit and push so the next CI run picks it up.");
+    return 0;
+}
 
 var builder = Host.CreateApplicationBuilder(args);
 
@@ -73,28 +93,55 @@ builder.Services.AddSingleton<Pipeline>();
 using var host = builder.Build();
 
 var logger = host.Services.GetRequiredService<ILogger<Program>>();
+
+if (options.Mode == RunMode.ListPending)
+{
+    var dedup = host.Services.GetRequiredService<IDedupStore>();
+    await dedup.InitializeAsync();
+    var pending = await dedup.ListPendingAsync();
+    if (pending.Count == 0)
+    {
+        Console.WriteLine("No pending postings.");
+        return 0;
+    }
+    foreach (var p in pending.OrderByDescending(p => p.CachedScore?.MatchScore ?? 0))
+    {
+        var score = p.CachedScore?.MatchScore.ToString() ?? "?";
+        Console.WriteLine($"[{score}/10] {p.Posting.Company} · {p.Posting.Title} ({p.Posting.Location})");
+        Console.WriteLine($"        first seen {p.SeenAt:yyyy-MM-dd}, last seen {p.LastSeenAt:yyyy-MM-dd}");
+        Console.WriteLine($"        {p.Posting.Url}");
+    }
+    Console.WriteLine();
+    Console.WriteLine($"{pending.Count} pending posting(s).");
+    return 0;
+}
+
 var companies = host.Services.GetRequiredService<CompaniesConfig>();
 var filters = host.Services.GetRequiredService<FiltersConfig>();
 var pipeline = host.Services.GetRequiredService<Pipeline>();
 var notifier = host.Services.GetRequiredService<INotifier>();
 
 logger.LogInformation(
-    "JobRadar starting (dry-run={DryRun}); {CompanyCount} companies configured, max {MaxCalls} scoring calls per run.",
+    "JobRadar starting (dry-run={DryRun}); {CompanyCount} companies configured, max {MaxCalls} scoring calls per run, pending grace {Grace}d.",
     options.DryRun,
     companies.Companies.Count,
-    filters.MaxScoringCallsPerRun);
+    filters.MaxScoringCallsPerRun,
+    filters.PendingGraceDays);
 
 var (entries, stats) = await pipeline.RunAsync();
 
 await notifier.SendDigestAsync(entries);
 
 logger.LogInformation(
-    "Run complete in {Duration}. Fetched: {Fetched}. Filtered (kw/loc): {KwOut}/{LocOut}. Deduped: {Dup}. Scored: {Scored}. Dropped ineligible: {Ineligible}. Aborted (cost guard): {Aborted}.",
+    "Run complete in {Duration}. Fetched: {Fetched}. Filtered (kw/loc): {KwOut}/{LocOut}. Carried pending: {Pending}. Resurrected: {Resurrected}. Expired: {Expired}. Marked from yaml: {Yaml}. Scored: {Scored}. Dropped ineligible: {Ineligible}. Aborted (cost guard): {Aborted}.",
     stats.Duration,
     string.Join(", ", stats.FetchedPerSource.Select(kv => $"{kv.Key}={kv.Value}")),
     stats.FilteredOutByKeyword,
     stats.FilteredOutByLocation,
-    stats.DedupedOut,
+    stats.Pending,
+    stats.Resurrected,
+    stats.Expired,
+    stats.MarkedFromYaml,
     stats.Scored,
     stats.DroppedIneligible,
     stats.Aborted);

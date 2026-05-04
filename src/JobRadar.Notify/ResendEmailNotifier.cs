@@ -38,8 +38,9 @@ public sealed class ResendEmailNotifier : INotifier
             return;
         }
 
-        var subject = DigestRenderer.BuildSubject(entries);
-        var html = DigestRenderer.BuildHtml(entries, DateTimeOffset.UtcNow);
+        var now = DateTimeOffset.UtcNow;
+        var subject = DigestRenderer.BuildSubject(entries, now);
+        var html = DigestRenderer.BuildHtml(entries, now);
 
         if (_options.DryRun)
         {

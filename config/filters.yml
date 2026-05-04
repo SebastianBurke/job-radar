@@ -83,3 +83,8 @@ location_deny_phrases:
 # Cost guard: max postings per run that may be sent to the Claude API.
 # If exceeded, the run aborts with an error.
 max_scoring_calls_per_run: 200
+
+# Pending postings whose source feed has not re-listed them in this many days
+# get auto-marked as expired (assumed pulled/filled). They are resurrected
+# automatically if the source lists them again later.
+pending_grace_days: 30

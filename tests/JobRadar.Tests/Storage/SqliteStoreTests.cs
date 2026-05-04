@@ -1,5 +1,6 @@
 using JobRadar.Core.Models;
 using JobRadar.Storage;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace JobRadar.Tests.Storage;
@@ -25,44 +26,199 @@ public sealed class SqliteStoreTests : IAsyncLifetime
         }
     }
 
-    [Fact]
-    public async Task HasSeen_returns_false_for_unknown_hash()
-    {
-        Assert.False(await _store.HasSeenAsync("nope"));
-    }
-
-    [Fact]
-    public async Task MarkSeen_then_HasSeen_returns_true()
-    {
-        var posting = new JobPosting(
+    private static JobPosting MakePosting(string title = ".NET Engineer", string url = "https://example.com/jobs/1") =>
+        new(
             Source: "test",
             Company: "Acme",
-            Title: ".NET Engineer",
+            Title: title,
             Location: "Remote",
-            Url: "https://example.com/jobs/1",
+            Url: url,
             Description: "We need a .NET engineer to do .NET things.");
-        var hash = posting.Hash;
 
-        await _store.MarkSeenAsync(hash, posting, DateTimeOffset.UtcNow);
+    private static ScoringResult Sample() => new(
+        MatchScore: 8,
+        Eligibility: EligibilityVerdict.Eligible,
+        EligibilityReason: "fits",
+        Top3MatchedSkills: new[] { ".NET", "C#", "Azure" },
+        TopConcern: "long ramp-up",
+        EstimatedSeniority: "mid",
+        LanguageRequired: "english",
+        SalaryListed: "€60k",
+        RemotePolicy: "remote",
+        OneLinePitch: "Solid fit.");
 
-        Assert.True(await _store.HasSeenAsync(hash));
+    [Fact]
+    public async Task Get_returns_null_for_unknown_hash()
+    {
+        Assert.Null(await _store.GetAsync("nope"));
     }
 
     [Fact]
-    public async Task MarkSeen_is_idempotent_on_same_hash()
+    public async Task UpsertNew_then_Get_returns_pending_with_null_score()
     {
-        var posting = new JobPosting(
-            Source: "test",
-            Company: "Acme",
-            Title: "Backend",
-            Location: "Madrid",
-            Url: "https://example.com/2",
-            Description: "Backend role.");
+        var p = MakePosting();
+        await _store.UpsertNewAsync(p, DateTimeOffset.UtcNow);
 
-        await _store.MarkSeenAsync(posting.Hash, posting, DateTimeOffset.UtcNow);
-        await _store.MarkSeenAsync(posting.Hash, posting, DateTimeOffset.UtcNow);
+        var stored = await _store.GetAsync(p.Hash);
+        Assert.NotNull(stored);
+        Assert.Equal(PostingStatus.Pending, stored!.Status);
+        Assert.Null(stored.CachedScore);
+    }
 
-        Assert.True(await _store.HasSeenAsync(posting.Hash));
+    [Fact]
+    public async Task UpsertNew_is_idempotent()
+    {
+        var p = MakePosting();
+        await _store.UpsertNewAsync(p, DateTimeOffset.UtcNow);
+        await _store.UpsertNewAsync(p, DateTimeOffset.UtcNow.AddHours(1));
+
+        var stored = await _store.GetAsync(p.Hash);
+        Assert.Equal(PostingStatus.Pending, stored!.Status);
+    }
+
+    [Fact]
+    public async Task SaveScore_round_trips_ScoringResult()
+    {
+        var p = MakePosting();
+        await _store.UpsertNewAsync(p, DateTimeOffset.UtcNow);
+        var score = Sample();
+        await _store.SaveScoreAsync(p.Hash, score, DateTimeOffset.UtcNow);
+
+        var stored = await _store.GetAsync(p.Hash);
+        Assert.NotNull(stored?.CachedScore);
+        Assert.Equal(score.MatchScore, stored!.CachedScore!.MatchScore);
+        Assert.Equal(score.Eligibility, stored.CachedScore.Eligibility);
+        Assert.Equal(score.EligibilityReason, stored.CachedScore.EligibilityReason);
+        Assert.NotNull(stored.CachedScore.Top3MatchedSkills);
+        Assert.Equal(3, stored.CachedScore.Top3MatchedSkills!.Count);
+        Assert.Equal(".NET", stored.CachedScore.Top3MatchedSkills[0]);
+        Assert.Equal(score.TopConcern, stored.CachedScore.TopConcern);
+        Assert.Equal(score.SalaryListed, stored.CachedScore.SalaryListed);
+        Assert.Equal(score.RemotePolicy, stored.CachedScore.RemotePolicy);
+        Assert.Equal(score.OneLinePitch, stored.CachedScore.OneLinePitch);
+    }
+
+    [Fact]
+    public async Task SetStatusByUrl_matches_existing_url_and_returns_true()
+    {
+        var p = MakePosting(url: "https://example.com/jobs/match");
+        await _store.UpsertNewAsync(p, DateTimeOffset.UtcNow);
+
+        var hit = await _store.SetStatusByUrlAsync(p.Url, PostingStatus.Applied, DateTimeOffset.UtcNow);
+        Assert.True(hit);
+
+        var stored = await _store.GetAsync(p.Hash);
+        Assert.Equal(PostingStatus.Applied, stored!.Status);
+    }
+
+    [Fact]
+    public async Task SetStatusByUrl_returns_false_when_url_unknown()
+    {
+        var hit = await _store.SetStatusByUrlAsync("https://nope.example.com/x", PostingStatus.Applied, DateTimeOffset.UtcNow);
+        Assert.False(hit);
+    }
+
+    [Fact]
+    public async Task ListPending_excludes_applied_dismissed_expired()
+    {
+        var p1 = MakePosting(title: "A", url: "https://x/a");
+        var p2 = MakePosting(title: "B", url: "https://x/b");
+        var p3 = MakePosting(title: "C", url: "https://x/c");
+        var p4 = MakePosting(title: "D", url: "https://x/d");
+        var now = DateTimeOffset.UtcNow;
+        await _store.UpsertNewAsync(p1, now);
+        await _store.UpsertNewAsync(p2, now);
+        await _store.UpsertNewAsync(p3, now);
+        await _store.UpsertNewAsync(p4, now);
+        await _store.SetStatusAsync(p2.Hash, PostingStatus.Applied, now);
+        await _store.SetStatusAsync(p3.Hash, PostingStatus.Dismissed, now);
+        await _store.SetStatusAsync(p4.Hash, PostingStatus.Expired, now);
+
+        var pending = await _store.ListPendingAsync();
+        Assert.Single(pending);
+        Assert.Equal(p1.Hash, pending[0].Hash);
+    }
+
+    [Fact]
+    public async Task ExpireStale_marks_only_pending_with_old_last_seen_at()
+    {
+        var p1 = MakePosting(title: "Stale", url: "https://x/stale");
+        var p2 = MakePosting(title: "Fresh", url: "https://x/fresh");
+        var p3 = MakePosting(title: "AppliedOld", url: "https://x/applied");
+        var now = DateTimeOffset.UtcNow;
+        await _store.UpsertNewAsync(p1, now);
+        await _store.UpsertNewAsync(p2, now);
+        await _store.UpsertNewAsync(p3, now);
+
+        await _store.TouchLastSeenAsync(p1.Hash, now.AddDays(-30));
+        await _store.TouchLastSeenAsync(p2.Hash, now);
+        await _store.TouchLastSeenAsync(p3.Hash, now.AddDays(-30));
+        await _store.SetStatusAsync(p3.Hash, PostingStatus.Applied, now);
+
+        var expired = await _store.ExpireStaleAsync(now.AddDays(-7), now);
+
+        Assert.Equal(1, expired);
+        Assert.Equal(PostingStatus.Expired, (await _store.GetAsync(p1.Hash))!.Status);
+        Assert.Equal(PostingStatus.Pending, (await _store.GetAsync(p2.Hash))!.Status);
+        Assert.Equal(PostingStatus.Applied, (await _store.GetAsync(p3.Hash))!.Status);
+    }
+
+    [Fact]
+    public async Task Migration_keeps_pre_v2_rows_pending_with_refreshed_last_seen_at()
+    {
+        // Tear down the auto-initialized store and replace with a hand-built v1 schema.
+        await _store.DisposeAsync();
+        File.Delete(_dbPath);
+
+        await using (var conn = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = _dbPath,
+            Mode = SqliteOpenMode.ReadWriteCreate,
+        }.ToString()))
+        {
+            await conn.OpenAsync();
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = """
+                CREATE TABLE seen (
+                    hash         TEXT PRIMARY KEY,
+                    source       TEXT NOT NULL,
+                    company      TEXT NOT NULL,
+                    title        TEXT NOT NULL,
+                    location     TEXT NOT NULL,
+                    url          TEXT NOT NULL,
+                    seen_at      TEXT NOT NULL
+                );
+                INSERT INTO seen (hash, source, company, title, location, url, seen_at)
+                VALUES ('legacyhash', 'test', 'Acme', 'Old Role', 'Remote', 'https://x/old', '2026-01-01T00:00:00+00:00');
+                """;
+            await cmd.ExecuteNonQueryAsync();
+        }
+        SqliteConnection.ClearAllPools();
+
+        var beforeMigration = DateTimeOffset.UtcNow;
+        _store = new SqliteStore(_dbPath, NullLogger<SqliteStore>.Instance);
+        await _store.InitializeAsync();
+
+        var stored = await _store.GetAsync("legacyhash");
+        Assert.NotNull(stored);
+        Assert.Equal(PostingStatus.Pending, stored!.Status);
+        Assert.Null(stored.CachedScore);
+        // last_seen_at must be refreshed to "now" so the 30-day grace clock starts today.
+        Assert.True(stored.LastSeenAt >= beforeMigration);
+    }
+
+    [Fact]
+    public async Task Migration_is_idempotent()
+    {
+        var p = MakePosting();
+        await _store.UpsertNewAsync(p, DateTimeOffset.UtcNow);
+
+        // Re-initialize: the v2 sentinel must prevent the backfill from clobbering pending.
+        await _store.InitializeAsync();
+        await _store.InitializeAsync();
+
+        var stored = await _store.GetAsync(p.Hash);
+        Assert.Equal(PostingStatus.Pending, stored!.Status);
     }
 
     [Fact]
