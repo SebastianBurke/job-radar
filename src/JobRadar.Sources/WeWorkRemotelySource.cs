@@ -32,7 +32,7 @@ public sealed class WeWorkRemotelySource : IJobSource
         _feeds = sourcesConfig.WeWorkRemotely.Feeds.Count > 0
             ? sourcesConfig.WeWorkRemotely.Feeds
             : throw new InvalidOperationException(
-                "config/sources.yml is missing weworkremotely.feeds; add at least one feed URL.");
+                "config/sources.yml is missing we_work_remotely.feeds; add at least one feed URL.");
     }
 
     public async IAsyncEnumerable<JobPosting> FetchAsync([EnumeratorCancellation] CancellationToken ct = default)

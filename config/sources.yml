@@ -14,7 +14,7 @@ remotive:
     - fullstack
     - full stack
 
-weworkremotely:
+we_work_remotely:
   # WWR exposes one RSS feed per category. Add or remove feeds based on the
   # role types you care about. See https://weworkremotely.com/categories.
   feeds:
