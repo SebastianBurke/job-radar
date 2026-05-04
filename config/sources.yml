@@ -1,0 +1,22 @@
+# Per-source parameters for sources that don't read from companies.yml.
+#
+# Aggregator sources (Remotive, WeWorkRemotely, RemoteOK, HackerNews) need
+# their own configuration: which keywords to search for, which feeds to pull,
+# etc. Keep stack-specific bias here so the scorer/filter logic in
+# JobRadar.Console stays generic.
+
+remotive:
+  # Remotive's API requires a search term per call; we call once per term and
+  # dedupe results by job id. Pick terms that match the candidate's stack.
+  search_terms:
+    - .net
+    - "c#"
+    - fullstack
+    - full stack
+
+weworkremotely:
+  # WWR exposes one RSS feed per category. Add or remove feeds based on the
+  # role types you care about. See https://weworkremotely.com/categories.
+  feeds:
+    - https://weworkremotely.com/categories/remote-programming-jobs.rss
+    - https://weworkremotely.com/categories/remote-full-stack-programming-jobs.rss

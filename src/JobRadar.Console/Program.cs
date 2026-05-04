@@ -26,6 +26,7 @@ builder.Logging.AddSimpleConsole(o =>
 builder.Services.AddSingleton(options);
 builder.Services.AddSingleton(_ => ConfigLoader.LoadCompanies(repoRoot));
 builder.Services.AddSingleton(_ => ConfigLoader.LoadFilters(repoRoot));
+builder.Services.AddSingleton(_ => ConfigLoader.LoadSources(repoRoot));
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<HostRateLimiter>();
 
@@ -35,14 +36,8 @@ builder.Services.AddSingleton<IJobSource, LeverSource>();
 builder.Services.AddSingleton<IJobSource, AshbySource>();
 builder.Services.AddSingleton<IJobSource, WorkableSource>();
 builder.Services.AddSingleton<IJobSource, RemoteOKSource>();
-builder.Services.AddSingleton<IJobSource>(sp => new RemotiveSource(
-    sp.GetRequiredService<IHttpClientFactory>(),
-    sp.GetRequiredService<HostRateLimiter>(),
-    sp.GetRequiredService<ILogger<RemotiveSource>>()));
-builder.Services.AddSingleton<IJobSource>(sp => new WeWorkRemotelySource(
-    sp.GetRequiredService<IHttpClientFactory>(),
-    sp.GetRequiredService<HostRateLimiter>(),
-    sp.GetRequiredService<ILogger<WeWorkRemotelySource>>()));
+builder.Services.AddSingleton<IJobSource, RemotiveSource>();
+builder.Services.AddSingleton<IJobSource, WeWorkRemotelySource>();
 builder.Services.AddSingleton<IJobSource, HackerNewsHiringSource>();
 
 // Storage.
@@ -56,6 +51,7 @@ builder.Services.AddSingleton(_ => new ClaudeScorerOptions
     ApiKey = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY") ?? string.Empty,
     PromptPath = Path.Combine(repoRoot, "prompts", "scoring-prompt.md"),
     CvPath = Path.Combine(repoRoot, "data", "cv.md"),
+    EligibilityPath = Path.Combine(repoRoot, "data", "eligibility.md"),
     Concurrency = 2,
     MaxTokens = 1500,
 });

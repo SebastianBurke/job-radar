@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using System.ServiceModel.Syndication;
 using System.Xml;
 using JobRadar.Core.Abstractions;
+using JobRadar.Core.Config;
 using JobRadar.Core.Models;
 using JobRadar.Sources.Internal;
 using Microsoft.Extensions.Logging;
@@ -11,12 +12,6 @@ namespace JobRadar.Sources;
 public sealed class WeWorkRemotelySource : IJobSource
 {
     private const string Host = "weworkremotely.com";
-
-    private static readonly string[] DefaultFeeds =
-    {
-        "https://weworkremotely.com/categories/remote-programming-jobs.rss",
-        "https://weworkremotely.com/categories/remote-full-stack-programming-jobs.rss",
-    };
 
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly HostRateLimiter _rateLimiter;
@@ -29,12 +24,15 @@ public sealed class WeWorkRemotelySource : IJobSource
         IHttpClientFactory httpClientFactory,
         HostRateLimiter rateLimiter,
         ILogger<WeWorkRemotelySource> logger,
-        IReadOnlyList<string>? feeds = null)
+        SourcesConfig sourcesConfig)
     {
         _httpClientFactory = httpClientFactory;
         _rateLimiter = rateLimiter;
         _logger = logger;
-        _feeds = feeds ?? DefaultFeeds;
+        _feeds = sourcesConfig.WeWorkRemotely.Feeds.Count > 0
+            ? sourcesConfig.WeWorkRemotely.Feeds
+            : throw new InvalidOperationException(
+                "config/sources.yml is missing weworkremotely.feeds; add at least one feed URL.");
     }
 
     public async IAsyncEnumerable<JobPosting> FetchAsync([EnumeratorCancellation] CancellationToken ct = default)

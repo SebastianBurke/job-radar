@@ -1,3 +1,4 @@
+using JobRadar.Core.Config;
 using JobRadar.Sources;
 using JobRadar.Sources.Internal;
 using JobRadar.Tests.TestUtils;
@@ -14,11 +15,12 @@ public sealed class RemotiveSourceTests
         var handler = StaticHttpHandler.FromFixture("application/json", fixture);
         var factory = new StaticHttpClientFactory(handler);
 
+        var sources = new SourcesConfig { Remotive = new() { SearchTerms = { ".net", "c#" } } };
         var source = new RemotiveSource(
             factory,
             new HostRateLimiter(TimeSpan.Zero),
             NullLogger<RemotiveSource>.Instance,
-            searchTerms: new[] { ".net", "c#" });
+            sources);
 
         var postings = new List<Core.Models.JobPosting>();
         await foreach (var p in source.FetchAsync()) postings.Add(p);

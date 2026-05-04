@@ -1,3 +1,4 @@
+using JobRadar.Core.Config;
 using JobRadar.Sources;
 using JobRadar.Sources.Internal;
 using JobRadar.Tests.TestUtils;
@@ -14,11 +15,15 @@ public sealed class WeWorkRemotelySourceTests
         var handler = StaticHttpHandler.FromFixture("application/rss+xml", xml);
         var factory = new StaticHttpClientFactory(handler);
 
+        var sources = new SourcesConfig
+        {
+            WeWorkRemotely = new() { Feeds = { "https://weworkremotely.com/categories/remote-programming-jobs.rss" } },
+        };
         var source = new WeWorkRemotelySource(
             factory,
             new HostRateLimiter(TimeSpan.Zero),
             NullLogger<WeWorkRemotelySource>.Instance,
-            feeds: new[] { "https://weworkremotely.com/categories/remote-programming-jobs.rss" });
+            sources);
 
         var postings = new List<Core.Models.JobPosting>();
         await foreach (var p in source.FetchAsync()) postings.Add(p);

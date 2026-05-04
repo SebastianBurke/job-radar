@@ -22,4 +22,10 @@ public static class ConfigLoader
 
     public static FiltersConfig LoadFilters(string repoRoot) =>
         LoadYaml<FiltersConfig>(Path.Combine(repoRoot, "config", "filters.yml"));
+
+    public static SourcesConfig LoadSources(string repoRoot)
+    {
+        var path = Path.Combine(repoRoot, "config", "sources.yml");
+        return File.Exists(path) ? LoadYaml<SourcesConfig>(path) : new SourcesConfig();
+    }
 }

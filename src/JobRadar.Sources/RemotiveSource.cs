@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using JobRadar.Core.Abstractions;
+using JobRadar.Core.Config;
 using JobRadar.Core.Models;
 using JobRadar.Sources.Internal;
 using Microsoft.Extensions.Logging;
@@ -11,7 +12,6 @@ namespace JobRadar.Sources;
 public sealed class RemotiveSource : IJobSource
 {
     private const string Host = "remotive.com";
-    private static readonly string[] DefaultSearchTerms = { ".net", "c#", "fullstack", "full stack" };
 
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly HostRateLimiter _rateLimiter;
@@ -24,12 +24,15 @@ public sealed class RemotiveSource : IJobSource
         IHttpClientFactory httpClientFactory,
         HostRateLimiter rateLimiter,
         ILogger<RemotiveSource> logger,
-        IReadOnlyList<string>? searchTerms = null)
+        SourcesConfig sourcesConfig)
     {
         _httpClientFactory = httpClientFactory;
         _rateLimiter = rateLimiter;
         _logger = logger;
-        _searchTerms = searchTerms ?? DefaultSearchTerms;
+        _searchTerms = sourcesConfig.Remotive.SearchTerms.Count > 0
+            ? sourcesConfig.Remotive.SearchTerms
+            : throw new InvalidOperationException(
+                "config/sources.yml is missing remotive.search_terms; add at least one term.");
     }
 
     public async IAsyncEnumerable<JobPosting> FetchAsync([EnumeratorCancellation] CancellationToken ct = default)
