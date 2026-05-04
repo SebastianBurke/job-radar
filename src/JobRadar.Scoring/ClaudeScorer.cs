@@ -19,6 +19,7 @@ public sealed class ClaudeScorerOptions
     public int MaxRetries { get; init; } = 3;
     public string PromptPath { get; init; } = string.Empty;
     public string CvPath { get; init; } = string.Empty;
+    public string EligibilityPath { get; init; } = string.Empty;
 }
 
 public sealed class ClaudeScorer : IScorer
@@ -30,6 +31,7 @@ public sealed class ClaudeScorer : IScorer
     private readonly ILogger<ClaudeScorer> _logger;
     private readonly Lazy<(string SystemPrompt, string UserTemplate)> _prompt;
     private readonly Lazy<string> _cv;
+    private readonly Lazy<string> _eligibility;
 
     public ClaudeScorer(
         IHttpClientFactory httpClientFactory,
@@ -41,6 +43,8 @@ public sealed class ClaudeScorer : IScorer
         _logger = logger;
         _prompt = new Lazy<(string, string)>(() => LoadPrompt(_options.PromptPath));
         _cv = new Lazy<string>(() => File.ReadAllText(_options.CvPath));
+        _eligibility = new Lazy<string>(() =>
+            string.IsNullOrEmpty(_options.EligibilityPath) ? string.Empty : File.ReadAllText(_options.EligibilityPath));
     }
 
     public async Task<ScoringResult> ScoreAsync(JobPosting posting, CancellationToken ct = default)
@@ -52,7 +56,7 @@ public sealed class ClaudeScorer : IScorer
         }
 
         var (systemPrompt, userTemplate) = _prompt.Value;
-        var userMessage = RenderUserMessage(userTemplate, posting, _cv.Value);
+        var userMessage = RenderUserMessage(userTemplate, posting, _cv.Value, _eligibility.Value);
 
         var request = new
         {
@@ -235,9 +239,10 @@ public sealed class ClaudeScorer : IScorer
         return (systemBlock, userBlock);
     }
 
-    public static string RenderUserMessage(string template, JobPosting posting, string cv) =>
+    public static string RenderUserMessage(string template, JobPosting posting, string cv, string eligibility) =>
         template
             .Replace("{{cv}}", cv, StringComparison.Ordinal)
+            .Replace("{{eligibility}}", eligibility, StringComparison.Ordinal)
             .Replace("{{posting.title}}", posting.Title, StringComparison.Ordinal)
             .Replace("{{posting.company}}", posting.Company, StringComparison.Ordinal)
             .Replace("{{posting.location}}", posting.Location, StringComparison.Ordinal)

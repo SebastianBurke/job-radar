@@ -80,8 +80,10 @@ dotnet run --project src/JobRadar.Console
 |------|---------|
 | `config/companies.yml` | ATS-keyed company list. Each entry: `name`, `region`, `ats` (`greenhouse \| lever \| ashby \| workable \| unknown`), `token` (the slug used by the ATS API). |
 | `config/filters.yml` | Two-tier keyword filter (`keywords_core` passes alone; `keywords_broad` only with a `tech_context_hint`), location allow/deny, max scoring calls per run. |
-| `prompts/scoring-prompt.md` | Loaded at runtime; placeholders `{{cv}}`, `{{posting.title}}` etc. are substituted before each Anthropic call. Has a `## System` and `## User` section split by `---`. |
+| `config/sources.yml` | Per-source params for aggregator sources: Remotive search terms, WeWorkRemotely RSS feed URLs. Edit this when changing stack focus. |
+| `prompts/scoring-prompt.md` | Loaded at runtime; placeholders `{{cv}}`, `{{eligibility}}`, `{{posting.title}}` etc. are substituted before each Anthropic call. Has a `## System` and `## User` section split by `---`. |
 | `data/cv.md` | The candidate CV that the scorer compares postings against. Plain markdown. |
+| `data/eligibility.md` | The candidate's work-authorization declaration, injected into the prompt's eligibility-rules section. Edit this when authorization changes (or when sharing the bot with a friend). |
 | `data/seen.db` | SQLite dedup store. Committed so dedup persists across CI runs. |
 
 To resolve a company's ATS slug: hit each of the four ATS public endpoints with the suspected slug (e.g. `https://boards-api.greenhouse.io/v1/boards/{slug}/jobs?content=true`) and use whichever returns 200 with non-empty jobs. Check the company's careers page if the API probes don't match.

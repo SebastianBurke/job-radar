@@ -141,11 +141,12 @@ public sealed class ClaudeScorerTests
     [Fact]
     public void RenderUserMessage_replaces_all_placeholders()
     {
-        const string template = "CV={{cv}} | T={{posting.title}} | C={{posting.company}} | L={{posting.location}} | S={{posting.source}} | U={{posting.url}} | D={{posting.description}}";
+        const string template = "CV={{cv}} | E={{eligibility}} | T={{posting.title}} | C={{posting.company}} | L={{posting.location}} | S={{posting.source}} | U={{posting.url}} | D={{posting.description}}";
         var posting = new JobPosting("greenhouse", "Acme", ".NET Eng", "Remote", "https://example.com/1", "Lots of .NET");
-        var rendered = ClaudeScorer.RenderUserMessage(template, posting, "MY-CV");
+        var rendered = ClaudeScorer.RenderUserMessage(template, posting, "MY-CV", "AUTH-CA-EU");
 
         Assert.Contains("CV=MY-CV", rendered);
+        Assert.Contains("E=AUTH-CA-EU", rendered);
         Assert.Contains("T=.NET Eng", rendered);
         Assert.Contains("C=Acme", rendered);
         Assert.Contains("D=Lots of .NET", rendered);

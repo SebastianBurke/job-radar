@@ -3,6 +3,7 @@
 This file is loaded at runtime by `JobRadar.Scoring/ClaudeScorer.cs`. The placeholders below are replaced before the API call:
 
 - `{{cv}}` — full text of `data/cv.md`
+- `{{eligibility}}` — full text of `data/eligibility.md` (the candidate's work-authorization declaration)
 - `{{posting.title}}`, `{{posting.company}}`, `{{posting.location}}`, `{{posting.source}}`, `{{posting.url}}`, `{{posting.description}}`
 
 Send the **System** block as the `system` parameter and the **User** block as the single user message.
@@ -64,12 +65,7 @@ Evaluate the candidate against this posting. Return JSON matching exactly this s
 
 # Eligibility rules
 
-The candidate is authorized to work in:
-
-- Canada (Canadian citizen)
-- European Union / EEA / Spain (Spanish citizen)
-
-The candidate is NOT authorized to work in the United States and does NOT have US security clearance.
+{{eligibility}}
 
 Mark eligibility:
 
