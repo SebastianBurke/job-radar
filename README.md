@@ -18,7 +18,7 @@ GitHub Actions (cron 12:00 UTC)
         │
         ▼
 JobRadar.Console
-  1. Load config (companies.yml, filters.yml, cv.md, scoring-prompt.md)
+  1. Load config (companies.yml, filters.yml, sources.yml, cv.md, eligibility.md, scoring-prompt.md)
   2. Fetch postings from all IJobSource implementations
   3. Keyword filter — must hit a .NET keyword OR (broad term + tech context)
   4. Location filter — allow Canada/Spain/EU/Remote, deny US-only/H1B/clearance
@@ -50,13 +50,15 @@ src/
   JobRadar.Storage/    SQLite dedup store
   JobRadar.Notify/     Resend email + HTML digest renderer
 tests/JobRadar.Tests/  xUnit tests, fixtures committed
-config/                companies.yml, filters.yml
+config/                companies.yml, filters.yml, sources.yml
 prompts/               scoring-prompt.md (loaded at runtime)
-data/                  cv.md, seen.db (both committed)
+data/                  cv.md, eligibility.md, seen.db (all committed)
 .github/workflows/     daily-scan.yml
 ```
 
 ## Quick start
+
+Prerequisite: .NET 8 SDK.
 
 ```bash
 # 1. Build and test
@@ -73,6 +75,8 @@ export EMAIL_TO=you@example.com
 export EMAIL_FROM=job-radar@yourdomain.com
 dotnet run --project src/JobRadar.Console
 ```
+
+For local development, `dotnet user-secrets` is the standard alternative to `export` — it stores secrets outside the repo so they can't be committed by accident.
 
 ## Configuration
 
@@ -116,6 +120,23 @@ Two layers:
 
 Per-run cost is typically $0.05–0.15 for 30–60 postings.
 
+## Forking for a different person or stack
+
+The bot's calibration lives in six files. To repoint it at a different candidate or a different stack, fork the repo and edit those files only — no `.cs` changes needed.
+
+| File | What to change |
+|------|----------------|
+| `data/cv.md` | The new candidate's CV. The scorer rereads it on every run. |
+| `data/eligibility.md` | The new candidate's work-authorization declaration (e.g. "US citizen, no Canadian auth"). Injected into the prompt at render time. |
+| `config/companies.yml` | Their target companies; resolve each one's ATS slug as described above. |
+| `config/filters.yml` | Their stack keywords (`keywords_core`, `keywords_broad`, `tech_context_hints`) and target locations. |
+| `config/sources.yml` | Aggregator search terms and RSS feed URLs — adjust away from .NET defaults if needed. |
+| `prompts/scoring-prompt.md` | Only edit if you want a different rubric (most forks won't). |
+
+Plus: set the four GitHub secrets in their fork (`ANTHROPIC_API_KEY`, `RESEND_API_KEY`, `EMAIL_TO`, `EMAIL_FROM`), and delete + recommit `data/seen.db` so the first run scores everything fresh.
+
+To **widen your own search** (same person, broader scope) the recipe is the same minus the secrets and seen.db reset — just edit the files in this repo.
+
 ## Adding a new source
 
 1. Implement `IJobSource` in `src/JobRadar.Sources/`. Use `IHttpClientFactory` and `HostRateLimiter`.
@@ -128,6 +149,7 @@ Hard rules:
 - Rate-limit to ~1 req/sec per host; back off on 429.
 - Never scrape LinkedIn — use LinkedIn's native job alerts to a separate inbox folder instead.
 - If a site exposes a public API or RSS, always prefer the structured source.
+- Don't auto-submit applications. This bot only finds and ranks.
 
 ## Troubleshooting
 
@@ -143,8 +165,16 @@ Hard rules:
 
 **ATS source returns 0 jobs** — slug is probably wrong or the company moved off that ATS. Re-probe the four endpoints; mark `ats: unknown` if none populated.
 
+## Known limitations
+
+- **Workable** v1 widget API has no per-job descriptions; `WorkableSource.cs` synthesizes one from job + company metadata, which limits scoring quality on Workable rows.
+- **GitLab Greenhouse** board returns 200 jobs (paginated cap); some roles may be missed until pagination is implemented.
+- **11 of 20 configured companies** in `config/companies.yml` have working ATS slugs. The other 9 use non-Big-4 systems (Workday, Teamtailor, Njoyn, custom WordPress) and currently contribute 0 postings — see the per-entry notes.
+- **GcJobs / Emplois GC** is intentionally deferred (parsing strategy + robots.txt review pending).
+- **Source fetching is serial across hosts**; total fetch time ≈ sum of per-source latencies. Parallelizing the fan-out is a known follow-up that would cut a typical run from ~5 min to ~1 min.
+
 ## See also
 
 - `CLAUDE.md` — short orientation for AI-assisted contributors and the hard rules.
 - `SPEC.md` — full design spec, scoring contract, acceptance criteria.
-- `BUILD-PROMPTS.md` — the original step-by-step build sequence used to bootstrap the repo.
+- `BUILD-PROMPTS.md` — historical: the original step-by-step build sequence used to bootstrap the repo. Not a current setup guide.
