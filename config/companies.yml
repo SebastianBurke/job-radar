@@ -30,94 +30,101 @@ companies:
   # === Canada — Montréal ===
   - name: Lightspeed Commerce
     region: ca-mtl
-    ats: unknown
-    token: "?"
+    ats: ashby
+    token: "lightspeedhq"
   - name: Coveo
     region: ca-mtl
-    ats: unknown
-    token: "?"
+    ats: greenhouse
+    token: "coveoen"
   - name: Hopper
     region: ca-mtl
-    ats: unknown
-    token: "?"
+    ats: ashby
+    token: "hopper"
   - name: Nuvei
     region: ca-mtl
-    ats: unknown
-    token: "?"
+    ats: workable
+    token: "nuvei"
   - name: GSoft
     region: ca-mtl
-    ats: unknown
-    token: "?"
+    ats: greenhouse
+    token: "workleap"
+    notes: GSoft rebranded to Workleap; jobs board is under that slug.
   - name: Genetec
     region: ca-mtl
-    ats: unknown
-    token: "?"
+    ats: workable
+    token: "genetec-inc"
 
   # === Canada — Ottawa / federal-adjacent ===
   - name: Shopify
     region: ca
     ats: unknown
     token: "?"
-    notes: Has Ottawa hub; mostly remote-Canada postings.
+    notes: Has Ottawa hub; mostly remote-Canada postings. Uses custom in-house careers system at shopify.com/careers — not Greenhouse/Lever/Ashby/Workable.
   - name: Calian Group
     region: ca-ott
     ats: unknown
     token: "?"
+    notes: Custom WordPress careers portal at careers.calian.com (WP `/wp/v2/career` REST endpoint); not one of the four supported ATSes.
   - name: Klipfolio
     region: ca-ott
     ats: unknown
     token: "?"
+    notes: No active job board — careers page says "all opportunities filled, email careers@klipfolio.com".
   - name: CGI
     region: ca
     ats: unknown
     token: "?"
-    notes: Federal contractor; many Ottawa roles.
+    notes: Federal contractor; many Ottawa roles. Uses Njoyn (clients.njoyn.com) — not one of the four supported ATSes.
 
   # === Spain — Madrid / Barcelona ===
   - name: Glovo
     region: es-bcn
     ats: unknown
     token: "?"
+    notes: Migrated off Greenhouse to a custom WordPress careers portal at careers.glovoapp.com (jobs loaded via `glovo_filter_jobs` AJAX action).
   - name: Cabify
     region: es-mad
-    ats: unknown
-    token: "?"
+    ats: greenhouse
+    token: "cabify"
   - name: Idealista
     region: es-mad
     ats: unknown
     token: "?"
+    notes: Uses Teamtailor (careers.idealista.com → app.teamtailor.com) — not one of the four supported ATSes.
   - name: Wallapop
     region: es-bcn
-    ats: unknown
-    token: "?"
+    ats: greenhouse
+    token: "wallapop"
   - name: Plain Concepts
     region: es
-    ats: unknown
-    token: "?"
+    ats: workable
+    token: "plainconcepts"
     notes: Microsoft Gold Partner; .NET-heavy stack.
   - name: Tokiota
     region: es-mad
     ats: unknown
     token: "?"
-    notes: Microsoft consultancy.
+    notes: Microsoft consultancy. No public careers page found; tokiota.com has no /careers route and no Greenhouse/Lever/Ashby/Workable account responds.
   - name: Sngular
     region: es
     ats: unknown
     token: "?"
+    notes: Self-hosted careers at sngular.com/talent (job pages under /talent-and-culture/jobs/) — not one of the four supported ATSes.
 
   # === Global / remote-friendly with strong .NET footprint ===
   - name: GitLab
     region: remote
-    ats: unknown
-    token: "?"
+    ats: greenhouse
+    token: "gitlab"
   - name: Automattic
     region: remote
     ats: unknown
     token: "?"
+    notes: Uses a custom in-house careers system at automattic.com/work-with-us — not one of the four supported ATSes.
   - name: Zapier
     region: remote
-    ats: unknown
-    token: "?"
+    ats: ashby
+    token: "zapier"
 
 # First Claude Code task using this file:
 #   "For every company in config/companies.yml with ats: unknown, visit their
