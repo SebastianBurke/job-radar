@@ -6,22 +6,35 @@ namespace JobRadar.App.Filters;
 
 public sealed class PostingFilters
 {
-    private readonly Regex _keywordRegex;
+    private readonly Regex? _coreRegex;
+    private readonly Regex? _broadRegex;
+    private readonly Regex? _techHintRegex;
     private readonly Regex? _locationAllowRegex;
     private readonly Regex? _locationDenyRegex;
 
     public PostingFilters(FiltersConfig config)
     {
-        _keywordRegex = BuildKeywordRegex(config.KeywordsRequired);
+        _coreRegex = BuildKeywordRegex(config.KeywordsCore);
+        _broadRegex = BuildKeywordRegex(config.KeywordsBroad);
+        _techHintRegex = BuildKeywordRegex(config.TechContextHints);
         _locationAllowRegex = BuildContainsRegex(config.LocationAllow);
         _locationDenyRegex = BuildContainsRegex(config.LocationDenyPhrases);
     }
 
     public bool PassesKeyword(JobPosting posting)
     {
-        if (_keywordRegex.IsMatch(posting.Title)) return true;
-        if (!string.IsNullOrEmpty(posting.Description) && _keywordRegex.IsMatch(posting.Description)) return true;
-        return false;
+        var haystack = $"{posting.Title}\n{posting.Description}";
+
+        if (_coreRegex is not null && _coreRegex.IsMatch(haystack)) return true;
+
+        if (_broadRegex is not null && _broadRegex.IsMatch(haystack)
+            && _techHintRegex is not null && _techHintRegex.IsMatch(haystack))
+        {
+            return true;
+        }
+
+        // If both lists are empty, fail open (don't drop everything).
+        return _coreRegex is null && _broadRegex is null;
     }
 
     public bool PassesLocation(JobPosting posting)
@@ -36,18 +49,15 @@ public sealed class PostingFilters
         return _locationAllowRegex.IsMatch(haystack);
     }
 
-    private static Regex BuildKeywordRegex(IEnumerable<string> keywords)
+    private static Regex? BuildKeywordRegex(IEnumerable<string> keywords)
     {
         var alternation = string.Join("|", keywords
             .Where(k => !string.IsNullOrWhiteSpace(k))
             .Select(k => Regex.Escape(k.Trim())
                 .Replace("\\ ", "[\\- ]?")));
-        if (string.IsNullOrEmpty(alternation))
-        {
-            // Default fallback — match anything
-            return new Regex(".", RegexOptions.Compiled);
-        }
-        return new Regex($@"(?i)(?<![A-Za-z]){alternation}(?![A-Za-z])", RegexOptions.Compiled);
+        return string.IsNullOrEmpty(alternation)
+            ? null
+            : new Regex($@"(?i)(?<![A-Za-z]){alternation}(?![A-Za-z])", RegexOptions.Compiled);
     }
 
     private static Regex? BuildContainsRegex(IEnumerable<string> phrases)

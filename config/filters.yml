@@ -1,21 +1,45 @@
 # Filter configuration — applied before any posting hits the Claude API.
-# Keep these conservative: better to send a borderline posting to the scorer
-# than to miss a strong match because of a too-strict regex.
+#
+# Two-tier keyword scheme:
+#   keywords_core:        any one of these alone passes (.NET-specific signal)
+#   keywords_broad:       only counts if also paired with a tech_context_hint
+#                          anywhere in the title or description
+#   tech_context_hints:   .NET / Microsoft-stack signals that "save" a broad
+#                          keyword like "software engineer" from being too generic
+#
+# Rationale: "software engineer" alone matches Rails, Python, Go, JS-only roles
+# we don't want. Pairing it with .NET context drops most non-.NET noise.
 
-# A posting must match at least one of these (case-insensitive, word-boundary).
-keywords_required:
+keywords_core:
   - .net
   - "c#"
   - dotnet
   - asp.net
   - blazor
-  - full stack
-  - fullstack
+  - ".net developer"
+  - ".net engineer"
+  - ".net core"
+
+keywords_broad:
   - software engineer
   - software developer
   - backend developer
-  - ".net developer"
-  - ".net engineer"
+  - back-end developer
+  - full stack
+  - fullstack
+  - full-stack
+
+tech_context_hints:
+  - "c#"
+  - .net
+  - dotnet
+  - asp.net
+  - azure
+  - entity framework
+  - blazor
+  - microsoft
+  - csharp
+  - ".net core"
 
 # A posting's location string must contain at least one of these.
 location_allow:

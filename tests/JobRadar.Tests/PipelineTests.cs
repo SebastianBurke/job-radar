@@ -68,7 +68,9 @@ public sealed class PipelineTests
 
     private static FiltersConfig DefaultFilters(int cap = 200) => new()
     {
-        KeywordsRequired = { ".net", "c#", "full stack", "software engineer" },
+        KeywordsCore = { ".net", "c#" },
+        KeywordsBroad = { "software engineer", "full stack" },
+        TechContextHints = { ".net", "c#", "azure" },
         LocationAllow = { "remote", "spain", "canada", "europe" },
         LocationDenyPhrases = { "us only", "h1b" },
         MaxScoringCallsPerRun = cap,
