@@ -71,9 +71,20 @@ public static class DigestRenderer
         {
             sb.Append($"""<div style="margin-top:6px;font-size:12px;color:#7a4a00;"><strong>Concern:</strong> {Esc(e.Score.TopConcern)}</div>""");
         }
+        // Surface the underlying scorer error on fallback rows so failures are diagnosable
+        // from the email alone, without GitHub Actions log access.
+        if (IsFallbackShape(e.Score) && !string.IsNullOrEmpty(e.Score.EligibilityReason))
+        {
+            sb.Append($"""<div style="margin-top:4px;font-size:11px;color:#999;"><strong>Scorer error:</strong> {Esc(e.Score.EligibilityReason)}</div>""");
+        }
         sb.Append("</div>");
         return sb.ToString();
     }
 
     private static string Esc(string? s) => string.IsNullOrEmpty(s) ? string.Empty : WebUtility.HtmlEncode(s);
+
+    private static bool IsFallbackShape(ScoringResult s) =>
+        s.MatchScore == 1
+        && s.Eligibility == EligibilityVerdict.Ambiguous
+        && (s.Top3MatchedSkills is null || s.Top3MatchedSkills.Count == 0);
 }

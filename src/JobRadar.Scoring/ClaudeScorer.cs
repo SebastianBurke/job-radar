@@ -14,8 +14,9 @@ public sealed class ClaudeScorerOptions
 {
     public string ApiKey { get; init; } = string.Empty;
     public string Model { get; init; } = "claude-haiku-4-5-20251001";
-    public int MaxTokens { get; init; } = 600;
-    public int Concurrency { get; init; } = 5;
+    public int MaxTokens { get; init; } = 1500;
+    public int Concurrency { get; init; } = 2;
+    public int MaxRetries { get; init; } = 3;
     public string PromptPath { get; init; } = string.Empty;
     public string CvPath { get; init; } = string.Empty;
 }
@@ -67,31 +68,121 @@ public sealed class ClaudeScorer : IScorer
         var http = _httpClientFactory.CreateClient("anthropic");
         http.Timeout = TimeSpan.FromSeconds(60);
 
-        using var req = new HttpRequestMessage(HttpMethod.Post, ApiUrl)
+        var serialized = JsonSerializer.Serialize(request);
+        var label = $"{posting.Company}/{posting.Title}";
+
+        HttpResponseMessage resp;
+        try
         {
-            Content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json"),
+            resp = await SendWithRetryAsync(http, () => BuildRequest(serialized), label, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Anthropic call failed for {Label}.", label);
+            return ScoringResult.LowConfidenceFallback("Anthropic request error.");
+        }
+
+        using (resp)
+        {
+            if (!resp.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Anthropic returned {Status} after retries for {Label}.", (int)resp.StatusCode, label);
+                return ScoringResult.LowConfidenceFallback($"Anthropic HTTP {(int)resp.StatusCode}.");
+            }
+            var body = await resp.Content.ReadAsStringAsync(ct);
+            var parsed = ParseResult(body);
+            if (IsFallback(parsed))
+            {
+                _logger.LogWarning("Anthropic parse fallback for {Label}: {Reason}", label, parsed.EligibilityReason);
+            }
+            return parsed;
+        }
+    }
+
+    private HttpRequestMessage BuildRequest(string serializedJson)
+    {
+        var req = new HttpRequestMessage(HttpMethod.Post, ApiUrl)
+        {
+            Content = new StringContent(serializedJson, Encoding.UTF8, "application/json"),
         };
         req.Headers.TryAddWithoutValidation("x-api-key", _options.ApiKey);
         req.Headers.TryAddWithoutValidation("anthropic-version", "2023-06-01");
         req.Headers.UserAgent.ParseAdd("JobRadar/1.0 (personal-bot)");
-
-        try
-        {
-            using var resp = await http.SendAsync(req, ct);
-            if (!resp.IsSuccessStatusCode)
-            {
-                _logger.LogWarning("Anthropic returned {Status} for {Company}/{Title}.", (int)resp.StatusCode, posting.Company, posting.Title);
-                return ScoringResult.LowConfidenceFallback($"Anthropic HTTP {(int)resp.StatusCode}.");
-            }
-            var body = await resp.Content.ReadAsStringAsync(ct);
-            return ParseResult(body);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Anthropic call failed for {Company}/{Title}.", posting.Company, posting.Title);
-            return ScoringResult.LowConfidenceFallback("Anthropic request error.");
-        }
+        return req;
     }
+
+    private async Task<HttpResponseMessage> SendWithRetryAsync(
+        HttpClient http,
+        Func<HttpRequestMessage> requestFactory,
+        string label,
+        CancellationToken ct)
+    {
+        HttpResponseMessage? lastResp = null;
+        Exception? lastException = null;
+
+        for (var attempt = 0; attempt <= _options.MaxRetries; attempt++)
+        {
+            if (attempt > 0)
+            {
+                var defaultDelay = TimeSpan.FromSeconds(Math.Pow(2, attempt - 1)); // 1s, 2s, 4s, …
+                var wait = ResolveRetryAfter(lastResp) ?? defaultDelay;
+                _logger.LogInformation(
+                    "Anthropic retry {Attempt}/{Max} for {Label} after {Wait:F1}s ({Reason}).",
+                    attempt, _options.MaxRetries, label, wait.TotalSeconds,
+                    lastResp is null ? "exception" : $"HTTP {(int)lastResp.StatusCode}");
+                await Task.Delay(wait, ct);
+            }
+
+            lastResp?.Dispose();
+            lastResp = null;
+            HttpRequestMessage? req = null;
+            try
+            {
+                req = requestFactory();
+                lastResp = await http.SendAsync(req, ct);
+                if (!IsRetryable(lastResp.StatusCode))
+                {
+                    return lastResp;
+                }
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                lastException = ex;
+            }
+            finally
+            {
+                req?.Dispose();
+            }
+        }
+
+        if (lastResp is not null) return lastResp;
+        throw lastException ?? new InvalidOperationException("Anthropic call failed after retries.");
+    }
+
+    private static bool IsRetryable(System.Net.HttpStatusCode code)
+    {
+        var n = (int)code;
+        return n == 429 || n == 529 || (n >= 500 && n <= 599);
+    }
+
+    private static TimeSpan? ResolveRetryAfter(HttpResponseMessage? resp)
+    {
+        if (resp?.Headers.RetryAfter is null) return null;
+        var ra = resp.Headers.RetryAfter;
+        if (ra.Delta is { } delta && delta > TimeSpan.Zero) return Cap(delta);
+        if (ra.Date is { } date)
+        {
+            var wait = date - DateTimeOffset.UtcNow;
+            if (wait > TimeSpan.Zero) return Cap(wait);
+        }
+        return null;
+    }
+
+    private static TimeSpan Cap(TimeSpan t) => t > TimeSpan.FromSeconds(30) ? TimeSpan.FromSeconds(30) : t;
 
     public async IAsyncEnumerable<(JobPosting Posting, ScoringResult Score)> ScoreManyAsync(
         IEnumerable<JobPosting> postings,
@@ -186,6 +277,11 @@ public sealed class ClaudeScorer : IScorer
             return ScoringResult.LowConfidenceFallback($"JSON parse error: {ex.Message}");
         }
     }
+
+    private static bool IsFallback(ScoringResult s) =>
+        s.MatchScore == 1
+        && s.Eligibility == EligibilityVerdict.Ambiguous
+        && (s.Top3MatchedSkills is null || s.Top3MatchedSkills.Count == 0);
 
     private static string ExtractJsonObject(string text)
     {

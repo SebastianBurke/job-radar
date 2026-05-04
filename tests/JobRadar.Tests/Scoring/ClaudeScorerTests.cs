@@ -1,10 +1,99 @@
+using System.Net;
+using System.Net.Http.Headers;
 using JobRadar.Core.Models;
 using JobRadar.Scoring;
+using JobRadar.Tests.TestUtils;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace JobRadar.Tests.Scoring;
 
 public sealed class ClaudeScorerTests
 {
+    private const string SuccessBody = """
+        {
+          "content":[
+            {"type":"text","text":"{\"match_score\":7,\"eligibility\":\"eligible\",\"eligibility_reason\":\"OK.\",\"top_3_matched_skills\":[\"C#\",\"Azure\",\"Angular\"],\"top_concern\":\"x\",\"estimated_seniority\":\"mid\",\"language_required\":\"english\",\"salary_listed\":null,\"remote_policy\":\"remote\",\"one_line_pitch\":\"Strong fit.\"}"}
+          ]
+        }
+        """;
+
+    private static ClaudeScorer NewScorerWith(StaticHttpHandler handler, int maxRetries = 3)
+    {
+        var tempPrompt = Path.GetTempFileName();
+        File.WriteAllText(tempPrompt, "## System\nbe terse\n## User\n{{cv}} {{posting.title}}");
+        var tempCv = Path.GetTempFileName();
+        File.WriteAllText(tempCv, "CV");
+        return new ClaudeScorer(
+            new StaticHttpClientFactory(handler),
+            new ClaudeScorerOptions
+            {
+                ApiKey = "test-key",
+                PromptPath = tempPrompt,
+                CvPath = tempCv,
+                MaxRetries = maxRetries,
+            },
+            NullLogger<ClaudeScorer>.Instance);
+    }
+
+    private static JobPosting AnyPosting() =>
+        new("test", "Acme", ".NET Eng", "Remote", "https://x", "We need .NET work.");
+
+    [Fact]
+    public async Task Retries_on_429_and_returns_parsed_result_on_eventual_success()
+    {
+        var calls = 0;
+        var handler = new StaticHttpHandler(_ =>
+        {
+            calls++;
+            if (calls <= 2)
+            {
+                var r = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
+                // Tiny Retry-After so the test doesn't sleep meaningfully.
+                r.Headers.RetryAfter = new RetryConditionHeaderValue(TimeSpan.FromMilliseconds(1));
+                return r;
+            }
+            var ok = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(SuccessBody),
+            };
+            return ok;
+        });
+
+        var scorer = NewScorerWith(handler);
+        var result = await scorer.ScoreAsync(AnyPosting());
+
+        Assert.Equal(7, result.MatchScore);
+        Assert.Equal(EligibilityVerdict.Eligible, result.Eligibility);
+        Assert.Equal(3, calls);
+    }
+
+    [Fact]
+    public async Task Returns_fallback_with_status_code_after_exhausting_retries()
+    {
+        var handler = new StaticHttpHandler(_ => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
+        var scorer = NewScorerWith(handler, maxRetries: 1);
+
+        var result = await scorer.ScoreAsync(AnyPosting());
+
+        Assert.Equal(1, result.MatchScore);
+        Assert.Equal(EligibilityVerdict.Ambiguous, result.Eligibility);
+        Assert.Contains("503", result.EligibilityReason ?? "");
+        Assert.Equal(2, handler.Requests.Count); // initial + 1 retry
+    }
+
+    [Fact]
+    public async Task Does_not_retry_on_400_class_errors()
+    {
+        var handler = new StaticHttpHandler(_ => new HttpResponseMessage(HttpStatusCode.BadRequest));
+        var scorer = NewScorerWith(handler);
+
+        var result = await scorer.ScoreAsync(AnyPosting());
+
+        Assert.Equal(1, result.MatchScore);
+        Assert.Contains("400", result.EligibilityReason ?? "");
+        Assert.Single(handler.Requests);
+    }
+
     [Fact]
     public void ParseResult_extracts_strict_json_block()
     {

@@ -56,6 +56,8 @@ builder.Services.AddSingleton(_ => new ClaudeScorerOptions
     ApiKey = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY") ?? string.Empty,
     PromptPath = Path.Combine(repoRoot, "prompts", "scoring-prompt.md"),
     CvPath = Path.Combine(repoRoot, "data", "cv.md"),
+    Concurrency = 2,
+    MaxTokens = 1500,
 });
 builder.Services.AddSingleton<IScorer, ClaudeScorer>();
 
