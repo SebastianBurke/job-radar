@@ -4,7 +4,7 @@ A daily job-posting aggregator. Runs on a GitHub Actions cron, scores each posti
 
 ## What it does
 
-- Pulls postings from public ATS APIs (Greenhouse, Lever, Ashby, Workable) for a configured company list, plus aggregator feeds (RemoteOK, Remotive, WeWorkRemotely RSS, Hacker News "Who is hiring").
+- Pulls postings from public ATS APIs (Greenhouse, Lever, Ashby, Workable) for a configured company list, plus aggregator feeds (RemoteOK, Remotive, WeWorkRemotely RSS, Hacker News "Who is hiring") and the Jobillico Quebec-area board.
 - Filters out non-.NET roles and US-only postings before any API call.
 - Sends survivors to Claude Haiku 4.5 for a fit score (1–10), eligibility verdict, top concern, and one-line pitch.
 - Emails a daily digest grouped by score band: top matches (8–10), worth a look (5–7), sanity check (1–4).
@@ -98,7 +98,7 @@ For local development, `dotnet user-secrets` is the standard alternative to `exp
 |------|---------|
 | `config/companies.yml` | ATS-keyed company list. Each entry: `name`, `region`, `ats` (`greenhouse \| lever \| ashby \| workable \| unknown`), `token` (the slug used by the ATS API). |
 | `config/filters.yml` | Two-tier keyword filter (`keywords_core` passes alone; `keywords_broad` only with a `tech_context_hint`), location allow/deny, max scoring calls per run. |
-| `config/sources.yml` | Per-source params for aggregator sources: Remotive search terms, WeWorkRemotely RSS feed URLs. Edit this when changing stack focus. |
+| `config/sources.yml` | Per-source params for aggregator sources: Remotive search terms, WeWorkRemotely RSS feed URLs, Jobillico search-term × location cross product, per-source `live_check` policy. Edit this when changing stack focus or geography. |
 | `prompts/scoring-prompt.md` | Loaded at runtime; placeholders `{{cv}}`, `{{eligibility}}`, `{{posting.title}}` etc. are substituted before each Anthropic call. Has a `## System` and `## User` section split by `---`. |
 | `data/cv.md` | The candidate CV that the scorer compares postings against. Plain markdown. |
 | `data/eligibility.md` | The candidate's work-authorization declaration, injected into the prompt's eligibility-rules section. Edit this when authorization changes (or when sharing the bot with a friend). |

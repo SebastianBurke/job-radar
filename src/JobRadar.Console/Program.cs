@@ -60,6 +60,7 @@ builder.Services.AddSingleton<IJobSource, RemoteOKSource>();
 builder.Services.AddSingleton<IJobSource, RemotiveSource>();
 builder.Services.AddSingleton<IJobSource, WeWorkRemotelySource>();
 builder.Services.AddSingleton<IJobSource, HackerNewsHiringSource>();
+builder.Services.AddSingleton<IJobSource, JobillicoSource>();
 
 // ATS live-check.
 builder.Services.AddSingleton<IAtsLiveChecker, AtsLiveChecker>();

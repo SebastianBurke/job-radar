@@ -6,6 +6,7 @@ public sealed class SourcesConfig
 {
     public RemotiveSourceConfig Remotive { get; set; } = new();
     public WeWorkRemotelySourceConfig WeWorkRemotely { get; set; } = new();
+    public JobillicoSourceConfig Jobillico { get; set; } = new();
 
     /// <summary>
     /// Per-source live-check mode keyed by <see cref="JobPosting.Source"/> (e.g. "greenhouse", "remoteok").
@@ -51,7 +52,7 @@ public sealed class SourcesConfig
     private static LiveCheckMode DefaultModeFor(string sourceName) => (sourceName ?? string.Empty).ToLowerInvariant() switch
     {
         "greenhouse" or "lever" or "ashby" or "workable" => LiveCheckMode.RequireOk,
-        "remoteok" or "remotive" or "weworkremotely" or "hackernews" => LiveCheckMode.BestEffort,
+        "remoteok" or "remotive" or "weworkremotely" or "hackernews" or "jobillico" => LiveCheckMode.BestEffort,
         _ => LiveCheckMode.None,
     };
 }
@@ -64,4 +65,11 @@ public sealed class RemotiveSourceConfig
 public sealed class WeWorkRemotelySourceConfig
 {
     public List<string> Feeds { get; set; } = new();
+}
+
+public sealed class JobillicoSourceConfig
+{
+    /// <summary>Search keywords; the source iterates the cross product of terms × locations.</summary>
+    public List<string> SearchTerms { get; set; } = new();
+    public List<string> Locations { get; set; } = new();
 }

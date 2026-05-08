@@ -30,6 +30,17 @@ we_work_remotely:
     - https://weworkremotely.com/categories/remote-programming-jobs.rss
     - https://weworkremotely.com/categories/remote-full-stack-programming-jobs.rss
 
+jobillico:
+  # Quebec's largest job board. The source iterates the cross product of
+  # search_terms × locations; each combination is one server-rendered page
+  # of ~11 results. Pipeline keyword/location filters narrow further.
+  search_terms:
+    - software
+    - .net
+  locations:
+    - Outaouais
+    - Montreal
+
 # Per-source ATS live-check policy. Before a posting hits the Claude API, the
 # pipeline verifies it's still listed on the underlying ATS (or, for aggregator
 # sources, that the apply URL still resolves). Modes:
@@ -52,3 +63,4 @@ live_check:
   remotive: best_effort
   weworkremotely: best_effort
   hackernews: best_effort
+  jobillico: best_effort
