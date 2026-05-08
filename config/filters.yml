@@ -88,3 +88,41 @@ max_scoring_calls_per_run: 200
 # get auto-marked as expired (assumed pulled/filled). They are resurrected
 # automatically if the source lists them again later.
 pending_grace_days: 30
+
+# Backend-language signals that tilt a posting's score before it hits the
+# Claude rubric. The scorer tokenises the JD, counts hits in each tier, and
+# passes a numeric modifier into the prompt as {{stack_modifier}} so the
+# model knows how to weight the posting:
+#
+#   primary:    .NET-stack signals — a hit gives +2.
+#   adjacent:   stack-adjacent (frontend, complementary) — a hit gives +0.
+#   mismatched: backend stacks that aren't .NET — without a primary hit,
+#               a mismatched-only posting gets -2 (Java/Python/Node
+#               shops crowd out .NET roles in "full stack" feeds).
+#
+# Modifier is computed once per posting and applied to the model's returned
+# score, clamped to [1, 10].
+stack_signals:
+  primary:
+    - ".NET"
+    - "C#"
+    - "ASP.NET"
+    - "dotnet"
+    - "Blazor"
+    - ".NET Core"
+    - ".NET 8"
+  adjacent:
+    - "TypeScript"
+    - "React"
+    - "Angular"
+    - "JavaScript"
+  mismatched:
+    - "Java"
+    - "Spring"
+    - "Python"
+    - "Django"
+    - "Node.js"
+    - "Kotlin"
+    - "Ruby on Rails"
+    - "Golang"
+    - "PHP"

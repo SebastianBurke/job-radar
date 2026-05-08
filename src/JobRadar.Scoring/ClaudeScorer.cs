@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Channels;
 using JobRadar.Core.Abstractions;
+using JobRadar.Core.Config;
 using JobRadar.Core.Models;
 using Microsoft.Extensions.Logging;
 
@@ -20,6 +21,7 @@ public sealed class ClaudeScorerOptions
     public string PromptPath { get; init; } = string.Empty;
     public string CvPath { get; init; } = string.Empty;
     public string EligibilityPath { get; init; } = string.Empty;
+    public StackSignalsConfig StackSignals { get; init; } = new();
 }
 
 public sealed class ClaudeScorer : IScorer
@@ -55,8 +57,15 @@ public sealed class ClaudeScorer : IScorer
             return ScoringResult.LowConfidenceFallback("ANTHROPIC_API_KEY not configured.");
         }
 
+        // Pre-scan the JD for stack signals: primary (.NET) hits, adjacent hits, and
+        // mismatched (Java/Python/Node…) hits. The modifier is reported to the prompt
+        // so the model can craft a sensible top_concern / one_line_pitch, and applied
+        // to the returned score after parsing.
+        var stackText = $"{posting.Title}\n{posting.Description}";
+        var stackScan = StackSignalsScanner.Scan(stackText, _options.StackSignals);
+
         var (systemPrompt, userTemplate) = _prompt.Value;
-        var userMessage = RenderUserMessage(userTemplate, posting, _cv.Value, _eligibility.Value);
+        var userMessage = RenderUserMessage(userTemplate, posting, _cv.Value, _eligibility.Value, stackScan);
 
         var request = new
         {
@@ -98,6 +107,18 @@ public sealed class ClaudeScorer : IScorer
             if (IsFallback(parsed))
             {
                 _logger.LogWarning("Anthropic parse fallback for {Label}: {Reason}", label, parsed.EligibilityReason);
+                return parsed;
+            }
+
+            // Apply the stack-signals modifier post-hoc so the score the digest shows
+            // reflects what the keyword pre-filter found. Clamped to [1, 10].
+            if (stackScan.Modifier != 0)
+            {
+                var adjusted = StackSignalsScanner.ApplyModifier(parsed.MatchScore, stackScan.Modifier);
+                if (adjusted != parsed.MatchScore)
+                {
+                    parsed = parsed with { MatchScore = adjusted };
+                }
             }
             return parsed;
         }
@@ -240,6 +261,15 @@ public sealed class ClaudeScorer : IScorer
     }
 
     public static string RenderUserMessage(string template, JobPosting posting, string cv, string eligibility) =>
+        RenderUserMessage(template, posting, cv, eligibility,
+            new StackSignalsScanner.Result(0, Array.Empty<string>(), Array.Empty<string>(), Array.Empty<string>()));
+
+    public static string RenderUserMessage(
+        string template,
+        JobPosting posting,
+        string cv,
+        string eligibility,
+        StackSignalsScanner.Result stackScan) =>
         template
             .Replace("{{cv}}", cv, StringComparison.Ordinal)
             .Replace("{{eligibility}}", eligibility, StringComparison.Ordinal)
@@ -249,7 +279,11 @@ public sealed class ClaudeScorer : IScorer
             .Replace("{{posting.location_confidence}}", LocationConfidenceLabel(posting.LocationConfidence), StringComparison.Ordinal)
             .Replace("{{posting.source}}", posting.Source, StringComparison.Ordinal)
             .Replace("{{posting.url}}", posting.Url, StringComparison.Ordinal)
-            .Replace("{{posting.description}}", posting.Description, StringComparison.Ordinal);
+            .Replace("{{posting.description}}", posting.Description, StringComparison.Ordinal)
+            .Replace("{{stack_modifier}}", FormatModifier(stackScan.Modifier), StringComparison.Ordinal)
+            .Replace("{{stack_matches}}", stackScan.PromptSummary, StringComparison.Ordinal);
+
+    private static string FormatModifier(int m) => m > 0 ? $"+{m}" : m.ToString();
 
     private static string LocationConfidenceLabel(LocationConfidence c) => c switch
     {

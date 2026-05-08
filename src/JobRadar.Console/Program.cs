@@ -70,14 +70,19 @@ builder.Services.AddSingleton<IDedupStore>(sp => new SqliteStore(
     sp.GetRequiredService<ILogger<SqliteStore>>()));
 
 // Scorer.
-builder.Services.AddSingleton(_ => new ClaudeScorerOptions
+builder.Services.AddSingleton(sp =>
 {
-    ApiKey = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY") ?? string.Empty,
-    PromptPath = Path.Combine(repoRoot, "prompts", "scoring-prompt.md"),
-    CvPath = Path.Combine(repoRoot, "data", "cv.md"),
-    EligibilityPath = Path.Combine(repoRoot, "data", "eligibility.md"),
-    Concurrency = 2,
-    MaxTokens = 1500,
+    var filters = sp.GetRequiredService<FiltersConfig>();
+    return new ClaudeScorerOptions
+    {
+        ApiKey = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY") ?? string.Empty,
+        PromptPath = Path.Combine(repoRoot, "prompts", "scoring-prompt.md"),
+        CvPath = Path.Combine(repoRoot, "data", "cv.md"),
+        EligibilityPath = Path.Combine(repoRoot, "data", "eligibility.md"),
+        Concurrency = 2,
+        MaxTokens = 1500,
+        StackSignals = filters.StackSignals,
+    };
 });
 builder.Services.AddSingleton<IScorer, ClaudeScorer>();
 

@@ -17,10 +17,10 @@ public sealed class ClaudeScorerTests
         }
         """;
 
-    private static ClaudeScorer NewScorerWith(StaticHttpHandler handler, int maxRetries = 3)
+    private static ClaudeScorer NewScorerWith(StaticHttpHandler handler, int maxRetries = 3, JobRadar.Core.Config.StackSignalsConfig? signals = null)
     {
         var tempPrompt = Path.GetTempFileName();
-        File.WriteAllText(tempPrompt, "## System\nbe terse\n## User\n{{cv}} {{posting.title}}");
+        File.WriteAllText(tempPrompt, "## System\nbe terse\n## User\n{{cv}} {{posting.title}} stack={{stack_modifier}} matches={{stack_matches}}");
         var tempCv = Path.GetTempFileName();
         File.WriteAllText(tempCv, "CV");
         return new ClaudeScorer(
@@ -31,6 +31,7 @@ public sealed class ClaudeScorerTests
                 PromptPath = tempPrompt,
                 CvPath = tempCv,
                 MaxRetries = maxRetries,
+                StackSignals = signals ?? new JobRadar.Core.Config.StackSignalsConfig(),
             },
             NullLogger<ClaudeScorer>.Instance);
     }
@@ -165,5 +166,88 @@ public sealed class ClaudeScorerTests
 
         Assert.Contains("authoritative", ClaudeScorer.RenderUserMessage(template, ats, "", ""));
         Assert.Contains("aggregator-tag-only", ClaudeScorer.RenderUserMessage(template, aggregator, "", ""));
+    }
+
+    [Fact]
+    public void RenderUserMessage_substitutes_stack_modifier_and_matches()
+    {
+        const string template = "MOD={{stack_modifier}} MATCHES={{stack_matches}}";
+        var posting = new JobPosting("greenhouse", "Acme", ".NET Eng", "Remote", "https://x", "stuff");
+        var scan = StackSignalsScanner.Scan("C# and .NET",
+            new JobRadar.Core.Config.StackSignalsConfig
+            {
+                Primary = { ".NET", "C#" },
+                Mismatched = { "Java" },
+            });
+
+        var rendered = ClaudeScorer.RenderUserMessage(template, posting, "", "", scan);
+
+        Assert.Contains("MOD=+2", rendered);
+        Assert.Contains("primary: [.NET, C#]", rendered);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_applies_positive_stack_modifier_and_clamps_at_10()
+    {
+        // Anthropic returns score=9; primary-only JD should bump to 10 (capped).
+        var handler = new StaticHttpHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("""
+                {"content":[{"type":"text","text":"{\"match_score\":9,\"eligibility\":\"eligible\",\"eligibility_reason\":\"ok\",\"top_3_matched_skills\":[\"C#\"],\"top_concern\":\"x\",\"estimated_seniority\":\"mid\",\"language_required\":\"english\",\"salary_listed\":null,\"remote_policy\":\"remote\",\"one_line_pitch\":\"y\"}"}]}
+                """),
+        });
+        var scorer = NewScorerWith(handler, signals: new JobRadar.Core.Config.StackSignalsConfig
+        {
+            Primary = { ".NET", "C#" },
+            Mismatched = { "Java" },
+        });
+        var posting = new JobPosting("greenhouse", "Acme", "Senior .NET", "Remote", "https://x", "We need C# and .NET 8.");
+
+        var result = await scorer.ScoreAsync(posting);
+
+        Assert.Equal(10, result.MatchScore);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_applies_negative_stack_modifier_for_mismatched_only()
+    {
+        // Anthropic returns score=7; mismatched-only JD downgrades to 5.
+        var handler = new StaticHttpHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("""
+                {"content":[{"type":"text","text":"{\"match_score\":7,\"eligibility\":\"eligible\",\"eligibility_reason\":\"ok\",\"top_3_matched_skills\":[\"backend\"],\"top_concern\":\"non-.NET stack\",\"estimated_seniority\":\"mid\",\"language_required\":\"english\",\"salary_listed\":null,\"remote_policy\":\"remote\",\"one_line_pitch\":\"y\"}"}]}
+                """),
+        });
+        var scorer = NewScorerWith(handler, signals: new JobRadar.Core.Config.StackSignalsConfig
+        {
+            Primary = { ".NET", "C#" },
+            Mismatched = { "Java", "Spring" },
+        });
+        var posting = new JobPosting("workable", "Acme", "Backend dev", "Remote", "https://x", "Java, Spring Boot, JPA.");
+
+        var result = await scorer.ScoreAsync(posting);
+
+        Assert.Equal(5, result.MatchScore);
+    }
+
+    [Fact]
+    public async Task ScoreAsync_does_not_modify_score_when_neither_primary_nor_mismatched_hit()
+    {
+        var handler = new StaticHttpHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("""
+                {"content":[{"type":"text","text":"{\"match_score\":6,\"eligibility\":\"eligible\",\"eligibility_reason\":\"ok\",\"top_3_matched_skills\":[\"x\"],\"top_concern\":\"x\",\"estimated_seniority\":\"mid\",\"language_required\":\"english\",\"salary_listed\":null,\"remote_policy\":\"remote\",\"one_line_pitch\":\"y\"}"}]}
+                """),
+        });
+        var scorer = NewScorerWith(handler, signals: new JobRadar.Core.Config.StackSignalsConfig
+        {
+            Primary = { ".NET" },
+            Mismatched = { "Java" },
+        });
+        var posting = new JobPosting("hackernews", "Acme", "Senior", "Remote", "https://x", "Generic JD with no stack keywords.");
+
+        var result = await scorer.ScoreAsync(posting);
+
+        Assert.Equal(6, result.MatchScore);
     }
 }

@@ -66,4 +66,17 @@ public sealed class ConfigLoaderTests
         var config = new JobRadar.Core.Config.SourcesConfig();
         Assert.Equal(LiveCheckMode.None, config.LiveCheckModeFor("custom-source"));
     }
+
+    [Fact]
+    public void Repo_filters_yml_loads_stack_signals_block()
+    {
+        var repoRoot = RepoPaths.FindRepoRoot();
+        var config = ConfigLoader.LoadFilters(repoRoot);
+
+        Assert.NotEmpty(config.StackSignals.Primary);
+        Assert.NotEmpty(config.StackSignals.Mismatched);
+        Assert.Contains(".NET", config.StackSignals.Primary);
+        Assert.Contains("C#", config.StackSignals.Primary);
+        Assert.Contains("Java", config.StackSignals.Mismatched);
+    }
 }

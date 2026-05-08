@@ -5,6 +5,7 @@ This file is loaded at runtime by `JobRadar.Scoring/ClaudeScorer.cs`. The placeh
 - `{{cv}}` — full text of `data/cv.md`
 - `{{eligibility}}` — full text of `data/eligibility.md` (the candidate's work-authorization declaration)
 - `{{posting.title}}`, `{{posting.company}}`, `{{posting.location}}`, `{{posting.location_confidence}}`, `{{posting.source}}`, `{{posting.url}}`, `{{posting.description}}`
+- `{{stack_modifier}}`, `{{stack_matches}}` — pre-computed stack-tier hits from `config/filters.yml`
 
 Send the **System** block as the `system` parameter and the **User** block as the single user message.
 
@@ -32,6 +33,9 @@ Location: {{posting.location}}
 Location confidence: {{posting.location_confidence}}
 Source: {{posting.source}}
 URL: {{posting.url}}
+
+Stack pre-filter signals: {{stack_matches}}
+Post-hoc modifier (applied by job-radar after you score): {{stack_modifier}}
 
 Description:
 {{posting.description}}
@@ -73,6 +77,26 @@ match score by **2 points** (clamped to the 1–10 range). Aggregators frequentl
 mistag geo-fenced roles as worldwide, so the posting is worth flagging for
 review but not dropping outright. When the confidence is **authoritative**, do
 not apply this downgrade — trust the ATS-supplied location.
+
+# Stack-signal context
+
+The `Stack pre-filter signals` line summarises what the keyword pre-filter
+found in the JD: `primary` hits are .NET-stack matches (C#, ASP.NET, Blazor,
+etc.), `mismatched` hits are non-.NET backend stacks (Java/Spring,
+Python/Django, Node.js, etc.) that crowd out .NET roles in generic "full
+stack" feeds. The `Post-hoc modifier` is what job-radar will add to your
+returned `match_score` after parsing — you do **not** apply it yourself.
+
+Use the signals to write an honest `top_concern` and `one_line_pitch`:
+
+- If the modifier is **+2** (primary hits, no mismatch), the JD looks
+  natively .NET-friendly — frame the pitch around stack alignment.
+- If the modifier is **0** with both primary and mismatched hits, the JD is
+  polyglot — note in `top_concern` whether .NET is the primary backend or
+  one of several.
+- If the modifier is **-2** (mismatched hits only), the JD is for a non-.NET
+  shop — `top_concern` should call this out so the candidate can decide
+  whether to pivot or skip.
 
 # Eligibility rules
 
