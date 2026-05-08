@@ -23,12 +23,22 @@ JobRadar.Console
   3. Keyword filter — must hit a .NET keyword OR (broad term + tech context)
   4. Location filter — allow Canada/Spain/EU/Remote, deny US-only/H1B/clearance
   5. SQLite dedup against data/seen.db (SHA-256 of company|title|description[:200])
-  6. Score via Claude Haiku — concurrency 2, retry on 429/5xx
-  7. Drop "ineligible" verdicts
-  8. Build inline-CSS HTML digest
-  9. Send via Resend
- 10. Commit updated data/seen.db
+  6. ATS live-check — verify the posting is still listed on the underlying ATS
+     (or, for aggregator sources, that the apply URL still resolves). 404s under
+     `require_ok` are dropped before scoring; under `best_effort` they're logged
+     and scored anyway. Verdicts cached in seen.db so dead URLs aren't re-fetched.
+  7. Score via Claude Haiku — concurrency 2, retry on 429/5xx. Pre-scan applies
+     a stack-tier modifier (+2 .NET-only, -2 mismatched-only, 0 polyglot) to the
+     model's returned score, clamped to 1–10.
+  8. Drop "ineligible" verdicts (US-only, fluent-French-required, etc.)
+  9. Build inline-CSS HTML digest
+ 10. Send via Resend
+ 11. Commit updated data/seen.db
 ```
+
+Each posting is also tagged with a `LocationConfidence` (Authoritative for ATS
+sources, AggregatorOnly for aggregators) so the rubric can downgrade aggregator
+"Remote / Worldwide" tags that frequently mistag geo-fenced roles.
 
 ## Stack
 
