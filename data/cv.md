@@ -1,6 +1,6 @@
 # Sebastian Canales Burke — CV
 
-**Software Developer · Search platform background · Self-directed .NET**
+**Software Developer (junior-to-mid target) · 3 yrs paid search-platform analysis (canada.ca) · 0 yrs paid .NET / C# (self-directed personal projects only)**
 Montréal, QC · (819) 230-2002 · burke@sebastiancanal.es
 [LinkedIn](https://linkedin.com/in/sebastian-canales-burke-230a91205) · [GitHub](https://github.com/SebastianBurke)
 
@@ -10,26 +10,44 @@ Montréal, QC · (819) 230-2002 · burke@sebastiancanal.es
 
 ## Profile
 
-Three years of search-platform technical analysis at Service Canada (canada.ca search infrastructure, GCWeb / WET-BOEW templates, Grafana monitoring), with a self-directed .NET / C# track via production-quality personal projects (Needlr, job-radar, Crittr). Strongest fit: junior-to-mid software engineering roles, search platform / search operations roles, and accessibility / government-CMS work.
+**Years of paid production .NET / C#: 0.** All .NET / C# / Blazor /
+DDD-CQRS / PostgreSQL work is from unpaid self-directed personal projects
+(Needlr, job-radar, Crittr) on my own time and infrastructure. Treat any
+JD requirement of "N years production .NET / C#" as an unmet hard
+requirement, regardless of N — the candidate has zero such years.
+
+**Paid production experience: 3 years as Search Technical Analyst at
+Service Canada** (Principal Publisher / Search team, canada.ca search
+platform). Stack was HTML / CSS / vanilla JavaScript via WET-BOEW + GCWeb
+templates, Grafana monitoring, ticket-driven analysis. **Not** .NET MVC,
+**not** REST API design, **not** Azure DevOps ownership, **not** code
+review leadership.
+
+**Strongest fit:** junior-to-mid software engineering roles, search
+platform / search operations roles, accessibility / government-CMS work.
+**Avoid:** "Senior", "Staff", "Principal", "Lead", or "Architect" titles
+asking for *any* explicit years of production .NET or cloud (3+, 4+, 5+,
+6+, …) — these are not realistic targets, even with strong personal-
+project work, and the digest should reflect that.
 
 ## Stack
 
-**Production (paid work):**
+**Paid production experience (the day job — what I have actually shipped under SLA):**
 HTML, CSS, vanilla JavaScript (canada.ca templates), WET-BOEW, GCWeb,
 Grafana, search platform configuration (crawling and indexation),
 ticket-driven support workflows.
 
-**Personal projects (production-quality):**
+**Unpaid self-directed personal projects (evenings and weekends, not paid production):**
 C#, .NET 8/9, ASP.NET Core, Blazor WebAssembly, MAUI Blazor Hybrid,
 EF Core, MediatR (CQRS), Hangfire, React, TypeScript, Tailwind,
 PostgreSQL + PostGIS, MongoDB, SQLite, Docker, Docker Compose, Caddy,
 GitHub Actions, xUnit, Testcontainers, NetArchTest, Anthropic Claude API.
 
-**Working knowledge:**
+**Working knowledge (used in the day job's tooling, never owned end-to-end):**
 Node.js / npm tooling, Git, Visual Studio 2022, JIRA, Agile / Scrum,
-Azure DevOps (limited exposure).
+Azure DevOps (some pipeline exposure via the day job; not owned).
 
-**Familiar:**
+**Familiar (coursework, scripting, conceptual only — no production):**
 Python (scripting and tooling), Java (CS coursework, no production),
 AWS (conceptual), Bash, Linux.
 
@@ -62,10 +80,12 @@ AWS (conceptual), Bash, Linux.
 - Resolved Tier 1/2 support tickets with full documentation, maintaining
   strong SLA compliance in a high-security environment.
 
-## Self-Directed .NET Work (production-quality personal projects)
+## Self-Directed .NET Work (unpaid, on my own time — NOT paid production)
 
-These are where my .NET / C# / architectural depth comes from, not the
-day job.
+These are where my .NET / C# / architectural depth comes from. They are
+**not** paid production .NET work — they are personal projects shipped
+on my own infrastructure, in my own time. List them as evidence of
+self-directed capability, not as production years.
 
 ### Needlr — Multi-project DDD/CQRS Blazor + ASP.NET Core PWA
 github.com/SebastianBurke/Needlr · 2026 (active development)

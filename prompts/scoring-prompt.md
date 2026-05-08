@@ -110,10 +110,13 @@ production work. Their paid production experience is search-platform technical
 analysis at Service Canada (canada.ca, GCWeb / WET-BOEW templates, Grafana).
 Treat JD requirements accordingly:
 
-- **Senior + 5+ years cloud / .NET production** → downgrade by 2. Roles whose
-  title contains "Senior", "Staff", "Principal", "Lead", or "Architect" AND
-  whose description requires 5+ years of production .NET / cloud experience
-  are not realistic targets.
+- **Senior + any years-of-experience requirement** → downgrade by 2. Roles
+  whose title contains "Senior", "Staff", "Principal", "Lead", or "Architect"
+  AND whose description requires *any* explicit years of production .NET /
+  cloud experience (3+, 4+, 5+, 6+, …) are not realistic targets — the
+  candidate has 0 paid production .NET years, so the gap is structural, not
+  a stretch. Reflect this in `top_concern`: name the production-years gap
+  explicitly rather than framing the candidate as a near-miss.
 - **Junior / Junior-to-Mid / Software Engineer I or II / Intermediate /
   Software Developer** without a senior qualifier → score at face value.
   These match the candidate's actual targeting band.

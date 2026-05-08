@@ -8,7 +8,15 @@ public sealed class TitleSignalsScannerTests
     private static TitleSignalsConfig Config() => new()
     {
         SeniorTitleTerms = { "senior", "staff", "principal", "lead", "architect" },
-        SeniorYearsThresholds = { "5+ years", "minimum 5 years", "at least 5 years", "6+ years", "8+ years" },
+        // Mirrors config/filters.yml — 3+ and 4+ in the threshold list so the
+        // senior_mismatch rule catches the M3usa "Senior + 3+ years" case.
+        SeniorYearsThresholds =
+        {
+            "3+ years", "minimum 3 years", "at least 3 years",
+            "4+ years", "minimum 4 years", "at least 4 years",
+            "5+ years", "minimum 5 years", "at least 5 years",
+            "6+ years", "8+ years",
+        },
         SeniorMismatchModifier = -2,
         SearchPlatformTerms = { "search engineer", "search platform", "search operations", "search specialist", "site search" },
         SearchPlatformBoost = 1,
@@ -27,6 +35,25 @@ public sealed class TitleSignalsScannerTests
         Assert.Equal(-2, r.Modifier);
         Assert.Contains("senior", r.SeniorMismatchHits);
         Assert.Contains("5+ years", r.SeniorMismatchHits);
+    }
+
+    [Theory]
+    [InlineData("3+ years")]
+    [InlineData("4+ years")]
+    [InlineData("minimum 3 years")]
+    [InlineData("at least 4 years")]
+    public void Senior_title_with_lower_years_threshold_also_yields_minus_two(string yearsPhrase)
+    {
+        // The 5+ floor pre-fix missed JDs asking for 3 or 4 years of production
+        // .NET, even though the gap is just as structural for a 0-years candidate.
+        var r = TitleSignalsScanner.Scan(
+            title: "Senior .NET Engineer",
+            description: $"We need someone with {yearsPhrase} of production .NET experience.",
+            Config());
+
+        Assert.Equal(-2, r.Modifier);
+        Assert.Contains("senior", r.SeniorMismatchHits);
+        Assert.Contains(yearsPhrase, r.SeniorMismatchHits);
     }
 
     [Fact]

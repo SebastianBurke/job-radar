@@ -146,7 +146,20 @@ title_signals:
     - "principal"
     - "lead"
     - "architect"
+  # Any explicit years requirement (3+ and up) trips senior_mismatch when paired
+  # with a senior title — the candidate has 0 paid production .NET years, so a
+  # JD asking for "Senior X with 3+ years production .NET" is no more realistic
+  # than one asking for 5+. The earlier 5+ floor missed M3usa-style "3+ years"
+  # JDs entirely, which kept routing through the model unmodified.
   senior_years_thresholds:
+    - "3+ years"
+    - "3 or more years"
+    - "minimum 3 years"
+    - "at least 3 years"
+    - "4+ years"
+    - "4 or more years"
+    - "minimum 4 years"
+    - "at least 4 years"
     - "5+ years"
     - "5 or more years"
     - "minimum 5 years"

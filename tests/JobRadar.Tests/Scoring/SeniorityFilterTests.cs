@@ -26,7 +26,15 @@ public sealed class SeniorityFilterTests
     private static TitleSignalsConfig DefaultTitleSignals() => new()
     {
         SeniorTitleTerms = { "senior", "staff", "principal", "lead", "architect" },
-        SeniorYearsThresholds = { "5+ years", "minimum 5 years", "at least 5 years", "6+ years", "8+ years" },
+        // Mirrors config/filters.yml: 3+ and 4+ included so JDs asking for
+        // "Senior X with 3+ years" trip senior_mismatch the same as 5+ would.
+        SeniorYearsThresholds =
+        {
+            "3+ years", "minimum 3 years", "at least 3 years",
+            "4+ years", "minimum 4 years", "at least 4 years",
+            "5+ years", "minimum 5 years", "at least 5 years",
+            "6+ years", "8+ years",
+        },
         SeniorMismatchModifier = -2,
         SearchPlatformTerms = { "search engineer", "search platform", "search operations", "search specialist", "site search" },
         SearchPlatformBoost = 1,
@@ -86,6 +94,24 @@ public sealed class SeniorityFilterTests
         Assert.Equal(2, swEng2.MatchScore - senior.MatchScore);
         Assert.Equal(FixedModelScore - 2, senior.MatchScore);
         Assert.Equal(FixedModelScore, swEng2.MatchScore);
+    }
+
+    [Fact]
+    public async Task Senior_dotnet_with_3_plus_years_scores_at_least_2_lower_than_software_engineer_ii()
+    {
+        // Regression for the M3usa-style gap: before this fix, the title scanner
+        // only recognised 5+ years and up, so "Senior X with 3+ years production
+        // .NET" passed through unmodified and the digest surfaced it as a top
+        // match.
+        var scorer = NewScorer(DefaultTitleSignals());
+        const string body = "We need a backend engineer with 3+ years of production .NET experience to own our platform.";
+
+        var senior = await scorer.ScoreAsync(Posting("Senior .NET Engineer", body));
+        var swEng2 = await scorer.ScoreAsync(Posting("Software Engineer II", body));
+
+        Assert.True(
+            swEng2.MatchScore - senior.MatchScore >= 2,
+            $"Expected swEng2 ({swEng2.MatchScore}) to score at least 2 higher than senior ({senior.MatchScore}); the senior_mismatch rule must fire on 3+ years JDs.");
     }
 
     [Fact]
