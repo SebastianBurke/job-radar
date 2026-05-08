@@ -61,6 +61,16 @@ builder.Services.AddSingleton<IJobSource, RemotiveSource>();
 builder.Services.AddSingleton<IJobSource, WeWorkRemotelySource>();
 builder.Services.AddSingleton<IJobSource, HackerNewsHiringSource>();
 builder.Services.AddSingleton<IJobSource, JobillicoSource>();
+builder.Services.AddSingleton<IJobSource>(sp =>
+{
+    var sourcesConfig = sp.GetRequiredService<SourcesConfig>();
+    var dir = sourcesConfig.Captured.Directory;
+    var resolved = Path.IsPathRooted(dir) ? dir : Path.Combine(repoRoot, dir);
+    return new CapturedJsonSource(
+        resolved,
+        sourcesConfig.Captured.StalenessWarningDays,
+        sp.GetRequiredService<ILogger<CapturedJsonSource>>());
+});
 
 // ATS live-check.
 builder.Services.AddSingleton<IAtsLiveChecker, AtsLiveChecker>();

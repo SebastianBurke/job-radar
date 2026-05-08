@@ -1,0 +1,6 @@
+# This directory is read by src/JobRadar.Sources/CapturedJsonSource.cs.
+# An external headless-browser instance writes <source>.json files here
+# (one file per source, overwritten each capture). The radar reads every
+# *.json file on each run.
+#
+# Schema and per-source capture instructions: see HEADLESS-SOURCE-HANDOFF.md.

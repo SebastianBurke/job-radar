@@ -4,7 +4,7 @@ A daily job-posting aggregator. Runs on a GitHub Actions cron, scores each posti
 
 ## What it does
 
-- Pulls postings from public ATS APIs (Greenhouse, Lever, Ashby, Workable) for a configured company list, plus aggregator feeds (RemoteOK, Remotive, WeWorkRemotely RSS, Hacker News "Who is hiring") and the Jobillico Quebec-area board.
+- Pulls postings from public ATS APIs (Greenhouse, Lever, Ashby, Workable) for a configured company list, plus aggregator feeds (RemoteOK, Remotive, WeWorkRemotely RSS, Hacker News "Who is hiring"), the Jobillico Quebec-area board, and any JSON snapshots dropped into `data/captured/` by an external headless-browser instance (see `HEADLESS-SOURCE-HANDOFF.md`).
 - Filters out non-.NET roles and US-only postings before any API call.
 - Sends survivors to Claude Haiku 4.5 for a fit score (1–10), eligibility verdict, top concern, and one-line pitch.
 - Emails a daily digest grouped by score band: top matches (8–10), worth a look (5–7), sanity check (1–4).
@@ -192,3 +192,4 @@ Hard rules:
 - `CLAUDE.md` — short orientation for AI-assisted contributors and the hard rules.
 - `SPEC.md` — full design spec, scoring contract, acceptance criteria.
 - `BUILD-PROMPTS.md` — historical: the original step-by-step build sequence used to bootstrap the repo. Not a current setup guide.
+- `HEADLESS-SOURCE-HANDOFF.md` — brief for a sibling Playwright instance; describes the JSON schema for `data/captured/*.json` files that fold JS-rendered sources (GC Jobs, Workday tenants, etc.) into this radar's pipeline.
