@@ -8,4 +8,5 @@ public sealed record StoredPosting(
     DateTimeOffset SeenAt,
     DateTimeOffset LastSeenAt,
     DateTimeOffset? StatusAt,
-    DateTimeOffset? LiveCheckAt = null);
+    DateTimeOffset? LiveCheckAt = null,
+    string? ScoringInputsHash = null);

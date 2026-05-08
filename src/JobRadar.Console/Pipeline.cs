@@ -1,6 +1,7 @@
 using JobRadar.Core.Abstractions;
 using JobRadar.Core.Config;
 using JobRadar.Core.Models;
+using JobRadar.Scoring;
 using Microsoft.Extensions.Logging;
 
 namespace JobRadar.App;
@@ -21,6 +22,17 @@ public sealed class PipelineStats
     public int LiveCheckDead { get; set; }
     public int LiveCheckUnknown { get; set; }
     public int LiveCheckDropped { get; set; }
+
+    /// <summary>Pending postings that hit the scorer this run because their cached score
+    /// was computed under a different scoring_inputs_hash (cv.md / rubric / filters changed).</summary>
+    public int RescoredDueToInputsChange { get; set; }
+
+    /// <summary>Pending postings that hit the scorer this run because --rescore-all was passed.</summary>
+    public int RescoredDueToFlag { get; set; }
+
+    /// <summary>The scoring_inputs_hash this run was computed under. Surfaced for logs / tests.</summary>
+    public string ScoringInputsHash { get; set; } = string.Empty;
+
     public TimeSpan Duration { get; set; }
 }
 
@@ -64,6 +76,26 @@ public sealed class Pipeline
         var now = DateTimeOffset.UtcNow;
 
         await _dedup.InitializeAsync(ct);
+
+        // Phase 0: compute a fingerprint of every file the scorer's verdict depends on
+        // (cv.md / eligibility.md / scoring-prompt.md / filters.yml). Cached scores are
+        // tagged with the fingerprint at write time and invalidated at read time when
+        // the fingerprint changes — so a cv.md edit auto-reprices the backlog without a
+        // manual flush.
+        var scoringInputsHash = ScoringInputsHasher.Compute(_options.RepoRoot);
+        stats.ScoringInputsHash = scoringInputsHash;
+        var staleCount = await _dedup.CountStaleCachesAsync(scoringInputsHash, ct);
+        if (_options.RescoreAll)
+        {
+            _logger.LogInformation(
+                "--rescore-all set; every pending posting with a cached score will be re-scored this run.");
+        }
+        else if (staleCount > 0)
+        {
+            _logger.LogInformation(
+                "Scoring inputs hash changed since {Count} pending postings were last scored; re-scoring {Count} this run.",
+                staleCount, staleCount);
+        }
 
         // Phase 0a: reconcile data/applied.yml so user-driven status updates are applied
         // before the expiry pass and before fetching.
@@ -140,10 +172,8 @@ public sealed class Pipeline
                     {
                         case PostingStatus.Pending:
                             await _dedup.TouchLastSeenAsync(posting.Hash, now, ct);
-                            if (existing.CachedScore is null)
+                            if (ShouldRescore(existing, scoringInputsHash, stats))
                             {
-                                // Legacy row from the v2 migration: pending but never scored.
-                                // Queue for first-time scoring; the upsert below is a no-op.
                                 newPostings.Add(posting);
                             }
                             else
@@ -156,7 +186,7 @@ public sealed class Pipeline
                             await _dedup.SetStatusAsync(posting.Hash, PostingStatus.Pending, now, ct);
                             await _dedup.TouchLastSeenAsync(posting.Hash, now, ct);
                             stats.Resurrected++;
-                            if (existing.CachedScore is null)
+                            if (ShouldRescore(existing, scoringInputsHash, stats))
                             {
                                 newPostings.Add(posting);
                             }
@@ -211,7 +241,9 @@ public sealed class Pipeline
         {
             stats.Scored++;
             // Persist the score regardless of eligibility — keeps diagnostics intact.
-            await _dedup.SaveScoreAsync(posting.Hash, score, now, ct);
+            // Tag with the current scoring_inputs_hash so a future cv.md / rubric edit
+            // invalidates this row automatically on the next run.
+            await _dedup.SaveScoreAsync(posting.Hash, score, now, scoringInputsHash, ct);
             if (score.Eligibility == EligibilityVerdict.Ineligible)
             {
                 stats.DroppedIneligible++;
@@ -241,6 +273,31 @@ public sealed class Pipeline
 
         stats.Duration = sw.Elapsed;
         return (entries, stats);
+    }
+
+    /// <summary>
+    /// Returns true when a re-encountered posting with a cached score must be sent
+    /// through the scorer again instead of carried over. Three cases trigger a rescore:
+    ///   1. The cached row never had a score (v2 legacy migration carry-over).
+    ///   2. <c>--rescore-all</c> is set on the CLI.
+    ///   3. The cached row's <c>scoring_inputs_hash</c> differs from the current run's
+    ///      hash — i.e. cv.md / eligibility.md / scoring-prompt.md / filters.yml changed
+    ///      since the score was computed.
+    /// </summary>
+    private bool ShouldRescore(StoredPosting existing, string currentScoringInputsHash, PipelineStats stats)
+    {
+        if (existing.CachedScore is null) return true;
+        if (_options.RescoreAll)
+        {
+            stats.RescoredDueToFlag++;
+            return true;
+        }
+        if (!string.Equals(existing.ScoringInputsHash ?? string.Empty, currentScoringInputsHash, StringComparison.Ordinal))
+        {
+            stats.RescoredDueToInputsChange++;
+            return true;
+        }
+        return false;
     }
 
     private async Task<List<JobPosting>> LiveCheckAsync(

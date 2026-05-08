@@ -248,6 +248,57 @@ public sealed class SqliteStoreTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task ScoringInputsHash_round_trips_through_save_score_and_get()
+    {
+        var p = MakePosting();
+        var now = DateTimeOffset.UtcNow;
+        await _store.UpsertNewAsync(p, now);
+        await _store.SaveScoreAsync(p.Hash, Sample(), now, scoringInputsHash: "abc123def456");
+
+        var stored = await _store.GetAsync(p.Hash);
+        Assert.NotNull(stored);
+        Assert.Equal("abc123def456", stored!.ScoringInputsHash);
+    }
+
+    [Fact]
+    public async Task CountStaleCaches_returns_pending_rows_with_different_hash()
+    {
+        var matching = MakePosting(title: "Matching", url: "https://x/m");
+        var stale = MakePosting(title: "Stale", url: "https://x/s");
+        var unscored = MakePosting(title: "Unscored", url: "https://x/u");
+        var applied = MakePosting(title: "Applied", url: "https://x/a");
+        var now = DateTimeOffset.UtcNow;
+        await _store.UpsertNewAsync(matching, now);
+        await _store.UpsertNewAsync(stale, now);
+        await _store.UpsertNewAsync(unscored, now);
+        await _store.UpsertNewAsync(applied, now);
+
+        await _store.SaveScoreAsync(matching.Hash, Sample(), now, scoringInputsHash: "current");
+        await _store.SaveScoreAsync(stale.Hash, Sample(), now, scoringInputsHash: "old");
+        await _store.SaveScoreAsync(applied.Hash, Sample(), now, scoringInputsHash: "old");
+        await _store.SetStatusAsync(applied.Hash, PostingStatus.Applied, now);
+        // unscored: no SaveScoreAsync — stays NULL on both score_json and scoring_inputs_hash.
+
+        var staleCount = await _store.CountStaleCachesAsync("current");
+
+        Assert.Equal(1, staleCount); // only the pending row whose hash != "current" — unscored has no score_json, applied isn't pending
+    }
+
+    [Fact]
+    public async Task CountStaleCaches_treats_null_hash_as_different_from_any_current_hash()
+    {
+        // Existing rows from before the migration carry NULL scoring_inputs_hash;
+        // they should be invalidated automatically on the first run after the fix.
+        var p = MakePosting();
+        var now = DateTimeOffset.UtcNow;
+        await _store.UpsertNewAsync(p, now);
+        await _store.SaveScoreAsync(p.Hash, Sample(), now, scoringInputsHash: null);
+
+        var staleCount = await _store.CountStaleCachesAsync("current-hash");
+        Assert.Equal(1, staleCount);
+    }
+
+    [Fact]
     public async Task ListPending_excludes_dead()
     {
         var p1 = MakePosting(title: "Live", url: "https://x/live");

@@ -12,7 +12,14 @@ public interface IDedupStore
 
     Task TouchLastSeenAsync(string hash, DateTimeOffset now, CancellationToken ct = default);
 
-    Task SaveScoreAsync(string hash, ScoringResult score, DateTimeOffset now, CancellationToken ct = default);
+    Task SaveScoreAsync(string hash, ScoringResult score, DateTimeOffset now, string? scoringInputsHash = null, CancellationToken ct = default);
+
+    /// <summary>
+    /// Counts pending postings whose cached score was computed under a different
+    /// <c>scoring_inputs_hash</c>. Used at run start to log how many cached
+    /// scores are about to be invalidated by a cv.md / rubric edit.
+    /// </summary>
+    Task<int> CountStaleCachesAsync(string currentScoringInputsHash, CancellationToken ct = default);
 
     Task SetStatusAsync(string hash, PostingStatus status, DateTimeOffset now, CancellationToken ct = default);
 

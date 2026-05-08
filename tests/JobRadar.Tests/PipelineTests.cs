@@ -2,12 +2,23 @@ using JobRadar.App;
 using JobRadar.Core.Abstractions;
 using JobRadar.Core.Config;
 using JobRadar.Core.Models;
+using JobRadar.Scoring;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace JobRadar.Tests;
 
 public sealed class PipelineTests
 {
+    /// <summary>
+    /// Hash that <see cref="ScoringInputsHasher"/> produces for a repo root with
+    /// none of the 4 input files present — i.e. the value <see cref="DefaultOptions"/>
+    /// will end up using since it points at a non-existent temp dir. Tests that
+    /// pre-populate cached scores need to tag those scores with this hash so the
+    /// new cache-invalidation logic doesn't treat them as stale.
+    /// </summary>
+    private static readonly string EmptyInputsHash = ScoringInputsHasher.Compute(
+        Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N")));
+
     private sealed class FakeSource : IJobSource
     {
         private readonly JobPosting[] _postings;
@@ -36,7 +47,8 @@ public sealed class PipelineTests
         ScoringResult? Score,
         DateTimeOffset SeenAt,
         DateTimeOffset LastSeenAt,
-        DateTimeOffset? StatusAt);
+        DateTimeOffset? StatusAt,
+        string? ScoringInputsHash = null);
 
     private sealed class FakeDedup : IDedupStore
     {
@@ -50,7 +62,7 @@ public sealed class PipelineTests
             {
                 return Task.FromResult<StoredPosting?>(null);
             }
-            return Task.FromResult<StoredPosting?>(new StoredPosting(hash, r.Posting, r.Status, r.Score, r.SeenAt, r.LastSeenAt, r.StatusAt));
+            return Task.FromResult<StoredPosting?>(new StoredPosting(hash, r.Posting, r.Status, r.Score, r.SeenAt, r.LastSeenAt, r.StatusAt, ScoringInputsHash: r.ScoringInputsHash));
         }
 
         public Task UpsertNewAsync(JobPosting posting, DateTimeOffset now, CancellationToken ct = default)
@@ -71,13 +83,30 @@ public sealed class PipelineTests
             return Task.CompletedTask;
         }
 
-        public Task SaveScoreAsync(string hash, ScoringResult score, DateTimeOffset now, CancellationToken ct = default)
+        public Dictionary<string, string?> ScoringInputsHashByHash { get; } = new();
+        public Task SaveScoreAsync(string hash, ScoringResult score, DateTimeOffset now, string? scoringInputsHash = null, CancellationToken ct = default)
         {
             if (Rows.TryGetValue(hash, out var r))
             {
-                Rows[hash] = r with { Score = score, LastSeenAt = now };
+                Rows[hash] = r with { Score = score, LastSeenAt = now, ScoringInputsHash = scoringInputsHash };
             }
+            ScoringInputsHashByHash[hash] = scoringInputsHash;
             return Task.CompletedTask;
+        }
+
+        public Task<int> CountStaleCachesAsync(string currentScoringInputsHash, CancellationToken ct = default)
+        {
+            var count = 0;
+            foreach (var (_, v) in Rows)
+            {
+                if (v.Status == PostingStatus.Pending
+                    && v.Score is not null
+                    && !string.Equals(v.ScoringInputsHash ?? string.Empty, currentScoringInputsHash, StringComparison.Ordinal))
+                {
+                    count++;
+                }
+            }
+            return Task.FromResult(count);
         }
 
         public Task SetStatusAsync(string hash, PostingStatus status, DateTimeOffset now, CancellationToken ct = default)
@@ -107,7 +136,7 @@ public sealed class PipelineTests
         {
             IReadOnlyList<StoredPosting> result = Rows
                 .Where(kv => kv.Value.Status == PostingStatus.Pending)
-                .Select(kv => new StoredPosting(kv.Key, kv.Value.Posting, kv.Value.Status, kv.Value.Score, kv.Value.SeenAt, kv.Value.LastSeenAt, kv.Value.StatusAt))
+                .Select(kv => new StoredPosting(kv.Key, kv.Value.Posting, kv.Value.Status, kv.Value.Score, kv.Value.SeenAt, kv.Value.LastSeenAt, kv.Value.StatusAt, ScoringInputsHash: kv.Value.ScoringInputsHash))
                 .ToList();
             return Task.FromResult(result);
         }
@@ -334,7 +363,7 @@ public sealed class PipelineTests
         var seenAt = DateTimeOffset.UtcNow;
         foreach (var p in new[] { pending1, pending2, pending3, pending4 })
         {
-            dedup.Rows[p.Hash] = new DedupRow(p, PostingStatus.Pending, Eligible(7), seenAt, seenAt, seenAt);
+            dedup.Rows[p.Hash] = new DedupRow(p, PostingStatus.Pending, Eligible(7), seenAt, seenAt, seenAt, ScoringInputsHash: EmptyInputsHash);
         }
 
         var scorer = new FakeScorer(_ => Eligible(9));
@@ -390,7 +419,7 @@ public sealed class PipelineTests
         var posting = Posting(".NET Developer", "Remote — Spain");
         var dedup = new FakeDedup();
         var seenAt = DateTimeOffset.UtcNow.AddDays(-30);
-        dedup.Rows[posting.Hash] = new DedupRow(posting, PostingStatus.Expired, Eligible(8), seenAt, seenAt, seenAt);
+        dedup.Rows[posting.Hash] = new DedupRow(posting, PostingStatus.Expired, Eligible(8), seenAt, seenAt, seenAt, ScoringInputsHash: EmptyInputsHash);
 
         var scorer = new FakeScorer(_ => throw new InvalidOperationException("should not be called for resurrected entry"));
 
@@ -466,6 +495,131 @@ public sealed class PipelineTests
         Assert.Equal(1, stats.Scored);
         Assert.Single(entries);
         Assert.NotNull(dedup.Rows[posting.Hash].Score);
+    }
+
+    [Fact]
+    public async Task Editing_cv_md_between_runs_invalidates_the_cached_score()
+    {
+        // Wires up a real on-disk repo root with all four scoring-inputs files,
+        // runs the pipeline twice with a cv.md edit in between, and verifies the
+        // second run re-scores the previously-cached posting instead of carrying
+        // over the stale verdict.
+        var tempRepo = Path.Combine(Path.GetTempPath(), $"job-radar-cache-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(Path.Combine(tempRepo, "data"));
+        Directory.CreateDirectory(Path.Combine(tempRepo, "prompts"));
+        Directory.CreateDirectory(Path.Combine(tempRepo, "config"));
+
+        var cvPath = Path.Combine(tempRepo, "data", "cv.md");
+        File.WriteAllText(cvPath, "Initial CV: Senior .NET dev with 10 years experience.");
+        File.WriteAllText(Path.Combine(tempRepo, "data", "eligibility.md"), "elig");
+        File.WriteAllText(Path.Combine(tempRepo, "prompts", "scoring-prompt.md"), "## System\nbe terse\n## User\n{{cv}} {{posting.title}}");
+        File.WriteAllText(Path.Combine(tempRepo, "config", "filters.yml"), "stack_signals:\n  primary: []\n");
+
+        try
+        {
+            var keep = Posting(".NET Developer", "Remote — Spain");
+            var dedup = new FakeDedup();
+            var scorer = new FakeScorer(_ => Eligible(8));
+
+            var pipeline = new Pipeline(
+                new IJobSource[] { new FakeSource("fake", keep) },
+                dedup,
+                scorer,
+                new FakeLiveChecker(),
+                DefaultFilters(),
+                DefaultSources(),
+                new RuntimeOptions { RepoRoot = tempRepo },
+                NullLogger<Pipeline>.Instance);
+
+            // First run scores once and caches with the initial scoring_inputs_hash.
+            var (firstEntries, firstStats) = await pipeline.RunAsync();
+            Assert.Single(firstEntries);
+            Assert.Equal(1, firstStats.Scored);
+            Assert.Equal(1, scorer.Calls);
+            var firstHash = firstStats.ScoringInputsHash;
+            Assert.Equal(firstHash, dedup.Rows[keep.Hash].ScoringInputsHash);
+
+            // Edit cv.md — the only scoring input that changes.
+            File.WriteAllText(cvPath, "Corrected CV: 0 years production .NET, junior-to-mid target only.");
+
+            var (secondEntries, secondStats) = await pipeline.RunAsync();
+            Assert.NotEqual(firstHash, secondStats.ScoringInputsHash);
+            Assert.Equal(2, scorer.Calls);              // re-scored, not carried over
+            Assert.Equal(1, secondStats.Scored);
+            Assert.Equal(1, secondStats.RescoredDueToInputsChange);
+            Assert.Equal(0, secondStats.Pending);       // no carry-over
+            Assert.Single(secondEntries);
+            Assert.Equal(secondStats.ScoringInputsHash, dedup.Rows[keep.Hash].ScoringInputsHash);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRepo)) Directory.Delete(tempRepo, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Same_scoring_inputs_across_runs_carries_cached_score_through()
+    {
+        // Counterpart to the cv.md-edit test: when the inputs files don't change,
+        // the second run must reuse the cached score (not re-score) so we keep
+        // amortising Anthropic costs across daily runs.
+        var keep = Posting(".NET Developer", "Remote — Spain");
+        var dedup = new FakeDedup();
+        var scorer = new FakeScorer(_ => Eligible(8));
+
+        var pipeline = new Pipeline(
+            new IJobSource[] { new FakeSource("fake", keep) },
+            dedup,
+            scorer,
+            new FakeLiveChecker(),
+            DefaultFilters(),
+            DefaultSources(),
+            DefaultOptions(),
+            NullLogger<Pipeline>.Instance);
+
+        await pipeline.RunAsync();
+        var (entries, stats) = await pipeline.RunAsync();
+
+        Assert.Equal(1, scorer.Calls);                     // scored once total
+        Assert.Equal(0, stats.Scored);                     // second run: 0 new score calls
+        Assert.Equal(0, stats.RescoredDueToInputsChange);
+        Assert.Equal(1, stats.Pending);
+        Assert.Single(entries);
+    }
+
+    [Fact]
+    public async Task RescoreAll_flag_forces_rescoring_even_when_hash_matches()
+    {
+        // Escape hatch: --rescore-all bypasses the hash comparison. Useful for
+        // debugging the cache logic itself or for an unconditional manual flush.
+        var keep = Posting(".NET Developer", "Remote — Spain");
+        var dedup = new FakeDedup();
+        var seenAt = DateTimeOffset.UtcNow;
+        // Pre-cache a score under the same hash the pipeline will compute, so
+        // without the flag the row would carry over.
+        dedup.Rows[keep.Hash] = new DedupRow(keep, PostingStatus.Pending, Eligible(7), seenAt, seenAt, seenAt, ScoringInputsHash: EmptyInputsHash);
+
+        var scorer = new FakeScorer(_ => Eligible(9));
+        var opts = DefaultOptions();
+        opts.RescoreAll = true;
+
+        var pipeline = new Pipeline(
+            new IJobSource[] { new FakeSource("fake", keep) },
+            dedup,
+            scorer,
+            new FakeLiveChecker(),
+            DefaultFilters(),
+            DefaultSources(),
+            opts,
+            NullLogger<Pipeline>.Instance);
+
+        var (entries, stats) = await pipeline.RunAsync();
+
+        Assert.Equal(1, scorer.Calls);
+        Assert.Equal(1, stats.Scored);
+        Assert.Equal(1, stats.RescoredDueToFlag);
+        Assert.Equal(0, stats.RescoredDueToInputsChange);
+        Assert.Single(entries);
     }
 
     [Fact]
@@ -627,7 +781,7 @@ public sealed class PipelineTests
         var posting = Posting(".NET Developer", "Remote — Spain", url: "https://example.com/jobs/abc");
         var dedup = new FakeDedup();
         var seenAt = DateTimeOffset.UtcNow;
-        dedup.Rows[posting.Hash] = new DedupRow(posting, PostingStatus.Pending, Eligible(8), seenAt, seenAt, seenAt);
+        dedup.Rows[posting.Hash] = new DedupRow(posting, PostingStatus.Pending, Eligible(8), seenAt, seenAt, seenAt, ScoringInputsHash: EmptyInputsHash);
 
         var tempRepo = Path.Combine(Path.GetTempPath(), $"job-radar-yaml-test-{Guid.NewGuid():N}");
         Directory.CreateDirectory(Path.Combine(tempRepo, "data"));

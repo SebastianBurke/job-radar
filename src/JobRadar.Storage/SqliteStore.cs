@@ -92,6 +92,7 @@ public sealed class SqliteStore : IDedupStore, IAsyncDisposable
         await AddColumnIfMissing("status_at", "TEXT");
         await AddColumnIfMissing("score_json", "TEXT");
         await AddColumnIfMissing("live_check_at", "TEXT");
+        await AddColumnIfMissing("scoring_inputs_hash", "TEXT");
 
         // Phase 3: indexes that reference v2-only columns. Safe now that the columns exist.
         await using (var indexes = conn.CreateCommand())
@@ -145,7 +146,7 @@ public sealed class SqliteStore : IDedupStore, IAsyncDisposable
 
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-            SELECT hash, source, company, title, location, url, seen_at, last_seen_at, status, status_at, score_json, live_check_at
+            SELECT hash, source, company, title, location, url, seen_at, last_seen_at, status, status_at, score_json, live_check_at, scoring_inputs_hash
               FROM seen
              WHERE hash = $hash
              LIMIT 1;
@@ -190,7 +191,7 @@ public sealed class SqliteStore : IDedupStore, IAsyncDisposable
         await cmd.ExecuteNonQueryAsync(ct);
     }
 
-    public async Task SaveScoreAsync(string hash, ScoringResult score, DateTimeOffset now, CancellationToken ct = default)
+    public async Task SaveScoreAsync(string hash, ScoringResult score, DateTimeOffset now, string? scoringInputsHash = null, CancellationToken ct = default)
     {
         await using var conn = new SqliteConnection(_connectionString);
         await conn.OpenAsync(ct);
@@ -199,13 +200,32 @@ public sealed class SqliteStore : IDedupStore, IAsyncDisposable
         cmd.CommandText = """
             UPDATE seen
                SET score_json = $score,
-                   last_seen_at = $now
+                   last_seen_at = $now,
+                   scoring_inputs_hash = $inputs_hash
              WHERE hash = $hash;
             """;
         cmd.Parameters.AddWithValue("$score", JsonSerializer.Serialize(score, ScoreJsonOptions));
         cmd.Parameters.AddWithValue("$now", now.ToString("O"));
+        cmd.Parameters.AddWithValue("$inputs_hash", (object?)scoringInputsHash ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$hash", hash);
         await cmd.ExecuteNonQueryAsync(ct);
+    }
+
+    public async Task<int> CountStaleCachesAsync(string currentScoringInputsHash, CancellationToken ct = default)
+    {
+        await using var conn = new SqliteConnection(_connectionString);
+        await conn.OpenAsync(ct);
+
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT COUNT(*) FROM seen
+             WHERE score_json IS NOT NULL
+               AND status = 'pending'
+               AND COALESCE(scoring_inputs_hash, '') != $current;
+            """;
+        cmd.Parameters.AddWithValue("$current", currentScoringInputsHash ?? string.Empty);
+        var result = await cmd.ExecuteScalarAsync(ct);
+        return result is long n ? (int)n : 0;
     }
 
     public async Task SetStatusAsync(string hash, PostingStatus status, DateTimeOffset now, CancellationToken ct = default)
@@ -268,7 +288,7 @@ public sealed class SqliteStore : IDedupStore, IAsyncDisposable
 
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-            SELECT hash, source, company, title, location, url, seen_at, last_seen_at, status, status_at, score_json, live_check_at
+            SELECT hash, source, company, title, location, url, seen_at, last_seen_at, status, status_at, score_json, live_check_at, scoring_inputs_hash
               FROM seen
              WHERE status = 'pending';
             """;
@@ -322,11 +342,14 @@ public sealed class SqliteStore : IDedupStore, IAsyncDisposable
         DateTimeOffset? liveCheckAt = r.FieldCount > 11 && !r.IsDBNull(11)
             ? DateTimeOffset.Parse(r.GetString(11))
             : null;
+        string? scoringInputsHash = r.FieldCount > 12 && !r.IsDBNull(12)
+            ? r.GetString(12)
+            : null;
 
         // The original description is not persisted; carry-overs reconstruct without it.
         // Renderer never reads description, and the hash is stable from the original encounter.
         var posting = new JobPosting(source, company, title, location, url, Description: string.Empty);
-        return new StoredPosting(hash, posting, status, cached, seenAt, lastSeenAt, statusAt, liveCheckAt);
+        return new StoredPosting(hash, posting, status, cached, seenAt, lastSeenAt, statusAt, liveCheckAt, scoringInputsHash);
     }
 
     private static ScoringResult? DeserializeScore(string json)

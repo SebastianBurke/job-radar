@@ -12,6 +12,14 @@ public sealed class RuntimeOptions
 {
     public RunMode Mode { get; set; } = RunMode.Scan;
     public bool DryRun { get; set; }
+
+    /// <summary>
+    /// Force re-scoring of every pending posting, ignoring the cached
+    /// scoring_inputs_hash comparison. Useful for debugging the cache logic
+    /// or for a one-off manual flush.
+    /// </summary>
+    public bool RescoreAll { get; set; }
+
     public string RepoRoot { get; set; } = string.Empty;
     public string? TargetUrl { get; set; }
     public string? Note { get; set; }
@@ -30,6 +38,10 @@ public sealed class RuntimeOptions
             if (string.Equals(a, "--dry-run", StringComparison.OrdinalIgnoreCase))
             {
                 opts.DryRun = true;
+            }
+            else if (string.Equals(a, "--rescore-all", StringComparison.OrdinalIgnoreCase))
+            {
+                opts.RescoreAll = true;
             }
             else if (string.Equals(a, "--mark-applied", StringComparison.OrdinalIgnoreCase))
             {
@@ -71,7 +83,7 @@ public sealed class RuntimeOptions
 
     public static string Usage => string.Join('\n',
         "Usage:",
-        "  dotnet run --project src/JobRadar.Console -- [--dry-run]",
+        "  dotnet run --project src/JobRadar.Console -- [--dry-run] [--rescore-all]",
         "  dotnet run --project src/JobRadar.Console -- --mark-applied <url> [--note \"text\"]",
         "  dotnet run --project src/JobRadar.Console -- --dismiss <url> [--note \"text\"]",
         "  dotnet run --project src/JobRadar.Console -- --list-pending");

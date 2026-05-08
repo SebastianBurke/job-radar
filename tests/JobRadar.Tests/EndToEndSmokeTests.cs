@@ -189,7 +189,7 @@ public sealed class EndToEndSmokeTests
     /// <summary>Inline minimal IDedupStore — independent of the FakeDedup in PipelineTests.</summary>
     private sealed class InMemoryDedup : IDedupStore
     {
-        private sealed record Row(JobPosting Posting, PostingStatus Status, ScoringResult? Score, DateTimeOffset SeenAt, DateTimeOffset LastSeenAt, DateTimeOffset? StatusAt);
+        private sealed record Row(JobPosting Posting, PostingStatus Status, ScoringResult? Score, DateTimeOffset SeenAt, DateTimeOffset LastSeenAt, DateTimeOffset? StatusAt, string? ScoringInputsHash = null);
         private readonly Dictionary<string, Row> _rows = new();
         public Dictionary<string, DateTimeOffset> LiveCheckedAt { get; } = new();
 
@@ -197,7 +197,7 @@ public sealed class EndToEndSmokeTests
 
         public Task<StoredPosting?> GetAsync(string hash, CancellationToken ct = default) =>
             Task.FromResult(_rows.TryGetValue(hash, out var r)
-                ? new StoredPosting(hash, r.Posting, r.Status, r.Score, r.SeenAt, r.LastSeenAt, r.StatusAt)
+                ? new StoredPosting(hash, r.Posting, r.Status, r.Score, r.SeenAt, r.LastSeenAt, r.StatusAt, ScoringInputsHash: r.ScoringInputsHash)
                 : null);
 
         public Task UpsertNewAsync(JobPosting posting, DateTimeOffset now, CancellationToken ct = default)
@@ -211,10 +211,19 @@ public sealed class EndToEndSmokeTests
 
         public Task TouchLastSeenAsync(string hash, DateTimeOffset now, CancellationToken ct = default) => Task.CompletedTask;
 
-        public Task SaveScoreAsync(string hash, ScoringResult score, DateTimeOffset now, CancellationToken ct = default)
+        public Task SaveScoreAsync(string hash, ScoringResult score, DateTimeOffset now, string? scoringInputsHash = null, CancellationToken ct = default)
         {
-            if (_rows.TryGetValue(hash, out var r)) _rows[hash] = r with { Score = score, LastSeenAt = now };
+            if (_rows.TryGetValue(hash, out var r))
+                _rows[hash] = r with { Score = score, LastSeenAt = now, ScoringInputsHash = scoringInputsHash };
             return Task.CompletedTask;
+        }
+
+        public Task<int> CountStaleCachesAsync(string currentScoringInputsHash, CancellationToken ct = default)
+        {
+            var count = _rows.Values.Count(v =>
+                v.Status == PostingStatus.Pending && v.Score is not null
+                && !string.Equals(v.ScoringInputsHash ?? string.Empty, currentScoringInputsHash, StringComparison.Ordinal));
+            return Task.FromResult(count);
         }
 
         public Task SetStatusAsync(string hash, PostingStatus status, DateTimeOffset now, CancellationToken ct = default)
