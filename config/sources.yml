@@ -5,6 +5,15 @@
 # etc. Keep stack-specific bias here so the scorer/filter logic in
 # JobRadar.Console stays generic.
 
+# Out of scope: Indeed and Glassdoor.
+# Both gate scraping behind Cloudflare challenges, CAPTCHAs, and IP rate
+# limits, and most of their listings are syndicated duplicates of content the
+# radar already gets via direct ATS sources. Adding either properly requires a
+# paid syndication API key (Indeed has one for partners) or captcha-solving
+# infrastructure — out of band for a personal radar. Decision is deliberate;
+# do not re-evaluate without a concrete syndication-API path.
+# TODO Indeed / Glassdoor: gated by anti-bot, skip until a paid syndication API is available.
+
 remotive:
   # Remotive's API requires a search term per call; we call once per term and
   # dedupe results by job id. Pick terms that match the candidate's stack.
