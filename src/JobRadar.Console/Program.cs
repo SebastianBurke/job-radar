@@ -82,6 +82,7 @@ builder.Services.AddSingleton(sp =>
         Concurrency = 2,
         MaxTokens = 1500,
         StackSignals = filters.StackSignals,
+        TitleSignals = filters.TitleSignals,
     };
 });
 builder.Services.AddSingleton<IScorer, ClaudeScorer>();

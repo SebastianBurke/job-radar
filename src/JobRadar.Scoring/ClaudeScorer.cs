@@ -22,6 +22,7 @@ public sealed class ClaudeScorerOptions
     public string CvPath { get; init; } = string.Empty;
     public string EligibilityPath { get; init; } = string.Empty;
     public StackSignalsConfig StackSignals { get; init; } = new();
+    public TitleSignalsConfig TitleSignals { get; init; } = new();
 }
 
 public sealed class ClaudeScorer : IScorer
@@ -64,8 +65,12 @@ public sealed class ClaudeScorer : IScorer
         var stackText = $"{posting.Title}\n{posting.Description}";
         var stackScan = StackSignalsScanner.Scan(stackText, _options.StackSignals);
 
+        // Pre-scan title + description for seniority / search-platform / accessibility
+        // signals tied to the candidate's actual experience profile.
+        var titleScan = TitleSignalsScanner.Scan(posting.Title, posting.Description, _options.TitleSignals);
+
         var (systemPrompt, userTemplate) = _prompt.Value;
-        var userMessage = RenderUserMessage(userTemplate, posting, _cv.Value, _eligibility.Value, stackScan);
+        var userMessage = RenderUserMessage(userTemplate, posting, _cv.Value, _eligibility.Value, stackScan, titleScan);
 
         var request = new
         {
@@ -110,11 +115,14 @@ public sealed class ClaudeScorer : IScorer
                 return parsed;
             }
 
-            // Apply the stack-signals modifier post-hoc so the score the digest shows
-            // reflects what the keyword pre-filter found. Clamped to [1, 10].
-            if (stackScan.Modifier != 0)
+            // Apply the stack-signals + title-signals modifiers post-hoc so the score
+            // the digest shows reflects what the keyword pre-filter found. Combine the
+            // two before clamping so a +2 stack and a -2 senior mismatch cancel cleanly
+            // instead of compounding through two separate clamps.
+            var combinedModifier = stackScan.Modifier + titleScan.Modifier;
+            if (combinedModifier != 0)
             {
-                var adjusted = StackSignalsScanner.ApplyModifier(parsed.MatchScore, stackScan.Modifier);
+                var adjusted = StackSignalsScanner.ApplyModifier(parsed.MatchScore, combinedModifier);
                 if (adjusted != parsed.MatchScore)
                 {
                     parsed = parsed with { MatchScore = adjusted };
@@ -262,7 +270,8 @@ public sealed class ClaudeScorer : IScorer
 
     public static string RenderUserMessage(string template, JobPosting posting, string cv, string eligibility) =>
         RenderUserMessage(template, posting, cv, eligibility,
-            new StackSignalsScanner.Result(0, Array.Empty<string>(), Array.Empty<string>(), Array.Empty<string>()));
+            new StackSignalsScanner.Result(0, Array.Empty<string>(), Array.Empty<string>(), Array.Empty<string>()),
+            new TitleSignalsScanner.Result(0, Array.Empty<string>(), Array.Empty<string>(), Array.Empty<string>()));
 
     public static string RenderUserMessage(
         string template,
@@ -270,6 +279,16 @@ public sealed class ClaudeScorer : IScorer
         string cv,
         string eligibility,
         StackSignalsScanner.Result stackScan) =>
+        RenderUserMessage(template, posting, cv, eligibility, stackScan,
+            new TitleSignalsScanner.Result(0, Array.Empty<string>(), Array.Empty<string>(), Array.Empty<string>()));
+
+    public static string RenderUserMessage(
+        string template,
+        JobPosting posting,
+        string cv,
+        string eligibility,
+        StackSignalsScanner.Result stackScan,
+        TitleSignalsScanner.Result titleScan) =>
         template
             .Replace("{{cv}}", cv, StringComparison.Ordinal)
             .Replace("{{eligibility}}", eligibility, StringComparison.Ordinal)
@@ -281,7 +300,9 @@ public sealed class ClaudeScorer : IScorer
             .Replace("{{posting.url}}", posting.Url, StringComparison.Ordinal)
             .Replace("{{posting.description}}", posting.Description, StringComparison.Ordinal)
             .Replace("{{stack_modifier}}", FormatModifier(stackScan.Modifier), StringComparison.Ordinal)
-            .Replace("{{stack_matches}}", stackScan.PromptSummary, StringComparison.Ordinal);
+            .Replace("{{stack_matches}}", stackScan.PromptSummary, StringComparison.Ordinal)
+            .Replace("{{title_modifier}}", FormatModifier(titleScan.Modifier), StringComparison.Ordinal)
+            .Replace("{{title_matches}}", titleScan.PromptSummary, StringComparison.Ordinal);
 
     private static string FormatModifier(int m) => m > 0 ? $"+{m}" : m.ToString();
 

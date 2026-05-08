@@ -79,4 +79,38 @@ public sealed class ConfigLoaderTests
         Assert.Contains("C#", config.StackSignals.Primary);
         Assert.Contains("Java", config.StackSignals.Mismatched);
     }
+
+    [Fact]
+    public void Repo_filters_yml_loads_title_signals_block()
+    {
+        var repoRoot = RepoPaths.FindRepoRoot();
+        var config = ConfigLoader.LoadFilters(repoRoot);
+
+        Assert.NotEmpty(config.TitleSignals.SeniorTitleTerms);
+        Assert.Contains("senior", config.TitleSignals.SeniorTitleTerms);
+        Assert.Contains("staff", config.TitleSignals.SeniorTitleTerms);
+        Assert.NotEmpty(config.TitleSignals.SeniorYearsThresholds);
+        Assert.Contains("5+ years", config.TitleSignals.SeniorYearsThresholds);
+        Assert.Equal(-2, config.TitleSignals.SeniorMismatchModifier);
+
+        Assert.NotEmpty(config.TitleSignals.SearchPlatformTerms);
+        Assert.Contains("search operations", config.TitleSignals.SearchPlatformTerms);
+        Assert.Equal(1, config.TitleSignals.SearchPlatformBoost);
+
+        Assert.NotEmpty(config.TitleSignals.AccessibilityCanadaCaTerms);
+        Assert.Contains("wcag", config.TitleSignals.AccessibilityCanadaCaTerms);
+        Assert.Contains("canada.ca", config.TitleSignals.AccessibilityCanadaCaTerms);
+        Assert.Equal(1, config.TitleSignals.AccessibilityCanadaCaBoost);
+    }
+
+    [Fact]
+    public void Repo_eligibility_md_records_zero_production_dotnet_years()
+    {
+        var path = Path.Combine(RepoPaths.FindRepoRoot(), "data", "eligibility.md");
+        var text = File.ReadAllText(path);
+
+        Assert.Contains("production_dotnet_years: 0", text);
+        Assert.Contains("avoid_seniority:", text);
+        Assert.Contains("target_seniority:", text);
+    }
 }

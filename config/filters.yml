@@ -126,3 +126,50 @@ stack_signals:
     - "Ruby on Rails"
     - "Golang"
     - "PHP"
+
+# Title- and JD-keyword signals that modify the score after the model returns.
+# These reflect the candidate's actual experience profile (see data/eligibility.md):
+# search-platform background at canada.ca, accessibility / WET-BOEW production
+# work, and 0 years of paid .NET production. The post-hoc modifier is summed
+# with stack_signals and applied to the model's match_score, clamped to [1, 10].
+#
+#   senior_title_terms + senior_years_thresholds → -2
+#       (both must hit; a "Senior" title alone without a years threshold is
+#       not necessarily a deal-breaker, but "Senior" + "5+ years cloud / .NET"
+#       is.)
+#   search_platform_terms in title → +1
+#   accessibility_canada_ca_terms in title or body → +1
+title_signals:
+  senior_title_terms:
+    - "senior"
+    - "staff"
+    - "principal"
+    - "lead"
+    - "architect"
+  senior_years_thresholds:
+    - "5+ years"
+    - "5 or more years"
+    - "minimum 5 years"
+    - "at least 5 years"
+    - "6+ years"
+    - "minimum 6 years"
+    - "at least 6 years"
+    - "7+ years"
+    - "8+ years"
+    - "at least 8 years"
+    - "10+ years"
+  senior_mismatch_modifier: -2
+  search_platform_terms:
+    - "search engineer"
+    - "search platform"
+    - "search operations"
+    - "search specialist"
+    - "site search"
+  search_platform_boost: 1
+  accessibility_canada_ca_terms:
+    - "wcag"
+    - "accessibility"
+    - "gcweb"
+    - "wet-boew"
+    - "canada.ca"
+  accessibility_canada_ca_boost: 1
