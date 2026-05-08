@@ -84,6 +84,29 @@ Mark eligibility:
 - **"eligible"** — posting clearly fits one of the candidate's authorized regions or is global remote
 - **"ambiguous"** — location/eligibility unclear and the JD doesn't specify
 
+# Language requirements
+
+Cross-reference the candidate's `languages` block (in the eligibility section
+above) with the posting's stated language requirement.
+
+- Mark **"ineligible"** when the posting requires *fluent* French AND the
+  candidate's French level is below `fluent`. Treat any of the following JD
+  phrases as a fluent-French requirement (case-insensitive, and in any
+  language the JD is written in):
+  - "Maîtrise du français" / "maîtrise parfaite du français"
+  - "fluent in French" / "French fluency required"
+  - "bilingual French/English" / "bilingual English/French"
+  - "français courant" / "français langue de travail"
+  - "professional working proficiency in French"
+- Treat the following as **acceptable** for an intermediate-French candidate
+  (do not mark ineligible on language grounds):
+  - "French is an asset" / "French a plus" / "nice to have"
+  - "intermediate French" / "conversational French"
+  - "English is the working language" with no French requirement
+- Apply the same rule to any language listed under `none` in the candidate's
+  `languages` block (e.g. if the JD requires fluent German and the candidate
+  has none, mark ineligible).
+
 # Output
 
 Return ONLY the JSON object. No preamble. No markdown fences. No trailing commentary.

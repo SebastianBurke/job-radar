@@ -1,0 +1,13 @@
+{
+  "id": "msg_french_01",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-haiku-4-5-20251001",
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"match_score\":3,\"eligibility\":\"ineligible\",\"eligibility_reason\":\"Posting requires Maîtrise du français; candidate's French is intermediate.\",\"top_3_matched_skills\":[\"C#\",\".NET\",\"Azure\"],\"top_concern\":\"Fluent French is non-negotiable per JD; candidate cannot meet this bar.\",\"estimated_seniority\":\"mid\",\"language_required\":\"french\",\"salary_listed\":null,\"remote_policy\":\"hybrid\",\"one_line_pitch\":\"Strong .NET fit, but the fluent-French requirement is disqualifying.\"}"
+    }
+  ],
+  "stop_reason": "end_turn"
+}

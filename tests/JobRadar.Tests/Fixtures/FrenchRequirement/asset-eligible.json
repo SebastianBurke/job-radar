@@ -1,0 +1,13 @@
+{
+  "id": "msg_french_02",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-haiku-4-5-20251001",
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"match_score\":8,\"eligibility\":\"eligible\",\"eligibility_reason\":\"Posting lists French as an asset; intermediate French satisfies a 'nice to have'.\",\"top_3_matched_skills\":[\"C#\",\".NET 8\",\"Angular\"],\"top_concern\":\"Quebec onsite expectation; otherwise strong stack match.\",\"estimated_seniority\":\"mid\",\"language_required\":\"english\",\"salary_listed\":null,\"remote_policy\":\"hybrid\",\"one_line_pitch\":\"Solid .NET fit at a Montreal shop where French is helpful but not required.\"}"
+    }
+  ],
+  "stop_reason": "end_turn"
+}

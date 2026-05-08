@@ -1,0 +1,13 @@
+{
+  "id": "msg_french_03",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-haiku-4-5-20251001",
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"match_score\":9,\"eligibility\":\"eligible\",\"eligibility_reason\":\"Posting is English-only; no language conflict.\",\"top_3_matched_skills\":[\"C#\",\".NET 8\",\"Azure DevOps\"],\"top_concern\":\"Senior years requested but candidate has 3+; mitigated by depth of stack.\",\"estimated_seniority\":\"mid\",\"language_required\":\"english\",\"salary_listed\":\"€55k-€70k\",\"remote_policy\":\"remote\",\"one_line_pitch\":\"Strong .NET fit with EU-friendly remote.\"}"
+    }
+  ],
+  "stop_reason": "end_turn"
+}
