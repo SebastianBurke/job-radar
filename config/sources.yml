@@ -20,3 +20,26 @@ we_work_remotely:
   feeds:
     - https://weworkremotely.com/categories/remote-programming-jobs.rss
     - https://weworkremotely.com/categories/remote-full-stack-programming-jobs.rss
+
+# Per-source ATS live-check policy. Before a posting hits the Claude API, the
+# pipeline verifies it's still listed on the underlying ATS (or, for aggregator
+# sources, that the apply URL still resolves). Modes:
+#
+#   require_ok   probe and drop the posting if the ATS returns 404 / login wall
+#   best_effort  probe and log on failure, but score anyway (the digest may surface
+#                stale links)
+#   none         skip the probe entirely (legacy behaviour)
+#
+# Defaults if a source is omitted here:
+#   greenhouse | lever | ashby | workable        → require_ok
+#   remoteok | remotive | weworkremotely | hn    → best_effort
+#   anything else                                → none
+live_check:
+  greenhouse: require_ok
+  lever: require_ok
+  ashby: require_ok
+  workable: require_ok
+  remoteok: best_effort
+  remotive: best_effort
+  weworkremotely: best_effort
+  hackernews: best_effort

@@ -100,7 +100,9 @@ public sealed class GreenhouseSource : IJobSource
                     Url: job.AbsoluteUrl,
                     Description: HtmlText.Strip(job.Content),
                     PostedAt: job.UpdatedAt,
-                    Department: job.Departments?.FirstOrDefault()?.Name);
+                    Department: job.Departments?.FirstOrDefault()?.Name,
+                    AtsId: job.Id?.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    AtsToken: company.Token);
             }
 
             _logger.LogInformation("Greenhouse {Company}: {Count} jobs.", company.Name, payload.Jobs.Count);
@@ -120,6 +122,9 @@ public sealed class GreenhouseSource : IJobSource
 
     private sealed class GreenhouseJob
     {
+        [JsonPropertyName("id")]
+        public long? Id { get; set; }
+
         [JsonPropertyName("title")]
         public string? Title { get; set; }
 

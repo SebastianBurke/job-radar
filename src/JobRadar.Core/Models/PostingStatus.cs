@@ -6,4 +6,7 @@ public enum PostingStatus
     Applied,
     Dismissed,
     Expired,
+
+    /// <summary>ATS live-check returned 404 / login wall; posting is no longer reachable.</summary>
+    Dead,
 }

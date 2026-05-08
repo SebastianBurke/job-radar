@@ -103,7 +103,9 @@ public sealed class LeverSource : IJobSource
                     Url: p.HostedUrl,
                     Description: description ?? string.Empty,
                     PostedAt: p.CreatedAt > 0 ? DateTimeOffset.FromUnixTimeMilliseconds(p.CreatedAt) : null,
-                    Department: p.Categories?.Department);
+                    Department: p.Categories?.Department,
+                    AtsId: p.Id,
+                    AtsToken: company.Token);
             }
 
             _logger.LogInformation("Lever {Company}: {Count} jobs.", company.Name, items.Count);
@@ -114,6 +116,7 @@ public sealed class LeverSource : IJobSource
 
     private sealed class LeverPosting
     {
+        [JsonPropertyName("id")] public string? Id { get; set; }
         [JsonPropertyName("text")] public string? Text { get; set; }
         [JsonPropertyName("hostedUrl")] public string? HostedUrl { get; set; }
         [JsonPropertyName("description")] public string? Description { get; set; }

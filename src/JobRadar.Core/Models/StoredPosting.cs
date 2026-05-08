@@ -7,4 +7,5 @@ public sealed record StoredPosting(
     ScoringResult? CachedScore,
     DateTimeOffset SeenAt,
     DateTimeOffset LastSeenAt,
-    DateTimeOffset? StatusAt);
+    DateTimeOffset? StatusAt,
+    DateTimeOffset? LiveCheckAt = null);

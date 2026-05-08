@@ -125,6 +125,47 @@ public sealed class PipelineTests
             }
             return Task.FromResult(count);
         }
+
+        public Dictionary<string, DateTimeOffset> LiveCheckedAt { get; } = new();
+        public Task MarkLiveCheckedAsync(string hash, DateTimeOffset now, CancellationToken ct = default)
+        {
+            LiveCheckedAt[hash] = now;
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class FakeLiveChecker : IAtsLiveChecker
+    {
+        private readonly Func<JobPosting, LiveCheckResult> _verdict;
+        public int Calls;
+
+        public FakeLiveChecker() : this(_ => LiveCheckResult.Live()) { }
+        public FakeLiveChecker(Func<JobPosting, LiveCheckResult> verdict) => _verdict = verdict;
+
+        public Task<LiveCheckResult> CheckAsync(JobPosting posting, LiveCheckMode mode, CancellationToken ct = default)
+        {
+            Interlocked.Increment(ref Calls);
+            if (mode == LiveCheckMode.None) return Task.FromResult(LiveCheckResult.Skipped());
+            return Task.FromResult(_verdict(posting));
+        }
+    }
+
+    private static SourcesConfig DefaultSources(LiveCheckMode? overrideAll = null)
+    {
+        var s = new SourcesConfig();
+        if (overrideAll is { } mode)
+        {
+            var raw = mode switch
+            {
+                LiveCheckMode.RequireOk => "require_ok",
+                LiveCheckMode.BestEffort => "best_effort",
+                LiveCheckMode.None => "none",
+                _ => "none",
+            };
+            // Cover the FakeSource (name="test") and any common source names tests rely on.
+            s.LiveCheck["test"] = raw;
+        }
+        return s;
     }
 
     private sealed class FakeScorer : IScorer
@@ -209,7 +250,9 @@ public sealed class PipelineTests
             new IJobSource[] { new FakeSource("fake", keep, nonKeyword, nonLocation, ineligible) },
             dedup,
             scorer,
+            new FakeLiveChecker(),
             DefaultFilters(),
+            DefaultSources(),
             DefaultOptions(),
             NullLogger<Pipeline>.Instance);
 
@@ -235,7 +278,9 @@ public sealed class PipelineTests
             new IJobSource[] { new FakeSource("fake", lots) },
             dedup,
             scorer,
+            new FakeLiveChecker(),
             DefaultFilters(cap: 3),
+            DefaultSources(),
             DefaultOptions(),
             NullLogger<Pipeline>.Instance);
 
@@ -257,7 +302,9 @@ public sealed class PipelineTests
             new IJobSource[] { new FakeSource("fake", keep) },
             dedup,
             scorer,
+            new FakeLiveChecker(),
             DefaultFilters(),
+            DefaultSources(),
             DefaultOptions(),
             NullLogger<Pipeline>.Instance);
 
@@ -296,7 +343,9 @@ public sealed class PipelineTests
             new IJobSource[] { new FakeSource("fake", pending1, pending2, pending3, pending4, fresh) },
             dedup,
             scorer,
+            new FakeLiveChecker(),
             DefaultFilters(cap: 1),
+            DefaultSources(),
             DefaultOptions(),
             NullLogger<Pipeline>.Instance);
 
@@ -319,7 +368,9 @@ public sealed class PipelineTests
             new IJobSource[] { new FakeSource("fake", posting) },
             dedup,
             scorer,
+            new FakeLiveChecker(),
             DefaultFilters(),
+            DefaultSources(),
             DefaultOptions(),
             NullLogger<Pipeline>.Instance);
 
@@ -347,7 +398,9 @@ public sealed class PipelineTests
             new IJobSource[] { new FakeSource("fake", posting) },
             dedup,
             scorer,
+            new FakeLiveChecker(),
             DefaultFilters(),
+            DefaultSources(),
             DefaultOptions(),
             NullLogger<Pipeline>.Instance);
 
@@ -374,7 +427,9 @@ public sealed class PipelineTests
             new IJobSource[] { new FakeSource("fake") },
             dedup,
             scorer,
+            new FakeLiveChecker(),
             DefaultFilters(graceDays: 7),
+            DefaultSources(),
             DefaultOptions(),
             NullLogger<Pipeline>.Instance);
 
@@ -399,7 +454,9 @@ public sealed class PipelineTests
             new IJobSource[] { new FakeSource("fake", posting) },
             dedup,
             scorer,
+            new FakeLiveChecker(),
             DefaultFilters(),
+            DefaultSources(),
             DefaultOptions(),
             NullLogger<Pipeline>.Instance);
 
@@ -409,6 +466,159 @@ public sealed class PipelineTests
         Assert.Equal(1, stats.Scored);
         Assert.Single(entries);
         Assert.NotNull(dedup.Rows[posting.Hash].Score);
+    }
+
+    [Fact]
+    public async Task LiveCheck_RequireOk_dead_posting_is_dropped_and_marked_dead()
+    {
+        var posting = Posting(".NET Developer", "Remote — Spain");
+        var dedup = new FakeDedup();
+        var scorer = new FakeScorer(_ => throw new InvalidOperationException("must not score dead postings"));
+        var checker = new FakeLiveChecker(_ => LiveCheckResult.Dead("simulated 404"));
+
+        var sources = new SourcesConfig();
+        sources.LiveCheck["test"] = "require_ok";
+
+        var pipeline = new Pipeline(
+            new IJobSource[] { new FakeSource("test", posting) },
+            dedup,
+            scorer,
+            checker,
+            DefaultFilters(),
+            sources,
+            DefaultOptions(),
+            NullLogger<Pipeline>.Instance);
+
+        var (entries, stats) = await pipeline.RunAsync();
+
+        Assert.Empty(entries);
+        Assert.Equal(0, scorer.Calls);
+        Assert.Equal(1, stats.LiveCheckDead);
+        Assert.Equal(1, stats.LiveCheckDropped);
+        Assert.Equal(PostingStatus.Dead, dedup.Rows[posting.Hash].Status);
+        Assert.True(dedup.LiveCheckedAt.ContainsKey(posting.Hash));
+    }
+
+    [Fact]
+    public async Task LiveCheck_BestEffort_dead_posting_still_gets_scored()
+    {
+        var posting = Posting(".NET Developer", "Remote — Spain");
+        var dedup = new FakeDedup();
+        var scorer = new FakeScorer(_ => Eligible(8));
+        var checker = new FakeLiveChecker(_ => LiveCheckResult.Dead("simulated 404"));
+
+        var sources = new SourcesConfig();
+        sources.LiveCheck["test"] = "best_effort";
+
+        var pipeline = new Pipeline(
+            new IJobSource[] { new FakeSource("test", posting) },
+            dedup,
+            scorer,
+            checker,
+            DefaultFilters(),
+            sources,
+            DefaultOptions(),
+            NullLogger<Pipeline>.Instance);
+
+        var (entries, stats) = await pipeline.RunAsync();
+
+        Assert.Single(entries);
+        Assert.Equal(1, scorer.Calls);
+        Assert.Equal(1, stats.LiveCheckDead);
+        Assert.Equal(0, stats.LiveCheckDropped);
+        // BestEffort mode does not mark Dead — the row stays Pending so the score lands.
+        Assert.NotEqual(PostingStatus.Dead, dedup.Rows[posting.Hash].Status);
+    }
+
+    [Fact]
+    public async Task LiveCheck_RequireOk_unknown_drops_without_marking_dead()
+    {
+        var posting = Posting(".NET Developer", "Remote — Spain");
+        var dedup = new FakeDedup();
+        var scorer = new FakeScorer(_ => throw new InvalidOperationException("must not score on unknown"));
+        var checker = new FakeLiveChecker(_ => LiveCheckResult.Unknown("transient HTTP 500"));
+
+        var sources = new SourcesConfig();
+        sources.LiveCheck["test"] = "require_ok";
+
+        var pipeline = new Pipeline(
+            new IJobSource[] { new FakeSource("test", posting) },
+            dedup,
+            scorer,
+            checker,
+            DefaultFilters(),
+            sources,
+            DefaultOptions(),
+            NullLogger<Pipeline>.Instance);
+
+        var (entries, stats) = await pipeline.RunAsync();
+
+        Assert.Empty(entries);
+        Assert.Equal(0, scorer.Calls);
+        Assert.Equal(1, stats.LiveCheckUnknown);
+        Assert.Equal(1, stats.LiveCheckDropped);
+        // Unknown leaves the row Pending so a future run can re-check.
+        Assert.Equal(PostingStatus.Pending, dedup.Rows[posting.Hash].Status);
+    }
+
+    [Fact]
+    public async Task LiveCheck_None_passes_through_without_calling_checker()
+    {
+        var posting = Posting(".NET Developer", "Remote — Spain");
+        var dedup = new FakeDedup();
+        var scorer = new FakeScorer(_ => Eligible(8));
+        var checker = new FakeLiveChecker(_ => throw new InvalidOperationException("must not check when mode=None"));
+
+        var sources = new SourcesConfig();
+        sources.LiveCheck["test"] = "none";
+
+        var pipeline = new Pipeline(
+            new IJobSource[] { new FakeSource("test", posting) },
+            dedup,
+            scorer,
+            checker,
+            DefaultFilters(),
+            sources,
+            DefaultOptions(),
+            NullLogger<Pipeline>.Instance);
+
+        var (entries, stats) = await pipeline.RunAsync();
+
+        Assert.Single(entries);
+        Assert.Equal(1, scorer.Calls);
+        // None mode short-circuits inside the checker (FakeLiveChecker returns Skipped).
+        Assert.Equal(0, stats.LiveCheckDead);
+        Assert.Equal(0, stats.LiveCheckUnknown);
+        Assert.False(dedup.LiveCheckedAt.ContainsKey(posting.Hash));
+    }
+
+    [Fact]
+    public async Task LiveCheck_Dead_status_does_not_resurrect_on_reencounter()
+    {
+        var posting = Posting(".NET Developer", "Remote — Spain");
+        var dedup = new FakeDedup();
+        var deadAt = DateTimeOffset.UtcNow.AddDays(-1);
+        dedup.Rows[posting.Hash] = new DedupRow(posting, PostingStatus.Dead, Score: null, deadAt, deadAt, deadAt);
+
+        var scorer = new FakeScorer(_ => throw new InvalidOperationException("dead postings must not score"));
+        var checker = new FakeLiveChecker(_ => throw new InvalidOperationException("dead postings must not re-check"));
+
+        var pipeline = new Pipeline(
+            new IJobSource[] { new FakeSource("test", posting) },
+            dedup,
+            scorer,
+            checker,
+            DefaultFilters(),
+            DefaultSources(),
+            DefaultOptions(),
+            NullLogger<Pipeline>.Instance);
+
+        var (entries, stats) = await pipeline.RunAsync();
+
+        Assert.Empty(entries);
+        Assert.Equal(0, scorer.Calls);
+        Assert.Equal(0, checker.Calls);
+        Assert.Equal(PostingStatus.Dead, dedup.Rows[posting.Hash].Status);
     }
 
     [Fact]
@@ -430,7 +640,9 @@ public sealed class PipelineTests
                 new IJobSource[] { new FakeSource("fake", posting) },
                 dedup,
                 scorer,
+                new FakeLiveChecker(),
                 DefaultFilters(),
+                DefaultSources(),
                 new RuntimeOptions { RepoRoot = tempRepo },
                 NullLogger<Pipeline>.Instance);
 

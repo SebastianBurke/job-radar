@@ -7,6 +7,7 @@ using JobRadar.Notify;
 using JobRadar.Scoring;
 using JobRadar.Sources;
 using JobRadar.Sources.Internal;
+using JobRadar.Sources.LiveCheck;
 using JobRadar.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -59,6 +60,9 @@ builder.Services.AddSingleton<IJobSource, RemoteOKSource>();
 builder.Services.AddSingleton<IJobSource, RemotiveSource>();
 builder.Services.AddSingleton<IJobSource, WeWorkRemotelySource>();
 builder.Services.AddSingleton<IJobSource, HackerNewsHiringSource>();
+
+// ATS live-check.
+builder.Services.AddSingleton<IAtsLiveChecker, AtsLiveChecker>();
 
 // Storage.
 builder.Services.AddSingleton<IDedupStore>(sp => new SqliteStore(

@@ -104,7 +104,9 @@ public sealed class AshbySource : IJobSource
                     Url: j.JobUrl,
                     Description: description ?? string.Empty,
                     PostedAt: j.PublishedAt,
-                    Department: j.Department);
+                    Department: j.Department,
+                    AtsId: j.Id,
+                    AtsToken: company.Token);
             }
 
             _logger.LogInformation("Ashby {Company}: {Count} jobs.", company.Name, listing.Jobs.Count);
@@ -120,6 +122,7 @@ public sealed class AshbySource : IJobSource
 
     private sealed class AshbyJob
     {
+        [JsonPropertyName("id")] public string? Id { get; set; }
         [JsonPropertyName("title")] public string? Title { get; set; }
         [JsonPropertyName("jobUrl")] public string? JobUrl { get; set; }
         [JsonPropertyName("location")] public string? Location { get; set; }

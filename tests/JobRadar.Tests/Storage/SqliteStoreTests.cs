@@ -222,6 +222,47 @@ public sealed class SqliteStoreTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task MarkLiveChecked_persists_timestamp_and_round_trips()
+    {
+        var p = MakePosting();
+        await _store.UpsertNewAsync(p, DateTimeOffset.UtcNow);
+
+        var checkedAt = DateTimeOffset.UtcNow.AddMinutes(-1);
+        await _store.MarkLiveCheckedAsync(p.Hash, checkedAt);
+
+        var stored = await _store.GetAsync(p.Hash);
+        Assert.NotNull(stored?.LiveCheckAt);
+        Assert.Equal(checkedAt.UtcDateTime, stored!.LiveCheckAt!.Value.UtcDateTime, TimeSpan.FromSeconds(1));
+    }
+
+    [Fact]
+    public async Task Dead_status_round_trips_through_set_and_get()
+    {
+        var p = MakePosting();
+        var now = DateTimeOffset.UtcNow;
+        await _store.UpsertNewAsync(p, now);
+        await _store.SetStatusAsync(p.Hash, PostingStatus.Dead, now);
+
+        var stored = await _store.GetAsync(p.Hash);
+        Assert.Equal(PostingStatus.Dead, stored!.Status);
+    }
+
+    [Fact]
+    public async Task ListPending_excludes_dead()
+    {
+        var p1 = MakePosting(title: "Live", url: "https://x/live");
+        var p2 = MakePosting(title: "Dead", url: "https://x/dead");
+        var now = DateTimeOffset.UtcNow;
+        await _store.UpsertNewAsync(p1, now);
+        await _store.UpsertNewAsync(p2, now);
+        await _store.SetStatusAsync(p2.Hash, PostingStatus.Dead, now);
+
+        var pending = await _store.ListPendingAsync();
+        Assert.Single(pending);
+        Assert.Equal(p1.Hash, pending[0].Hash);
+    }
+
+    [Fact]
     public void Hash_is_stable_for_same_posting_content()
     {
         var a = JobPosting.ComputeHash("Acme", "Engineer", "lorem ipsum");

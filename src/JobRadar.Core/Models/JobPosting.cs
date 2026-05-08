@@ -12,7 +12,9 @@ public sealed record JobPosting(
     string Description,
     DateTimeOffset? PostedAt = null,
     string? Department = null,
-    string? RawPayload = null)
+    string? RawPayload = null,
+    string? AtsId = null,
+    string? AtsToken = null)
 {
     public string Hash => ComputeHash(Company, Title, Description);
 

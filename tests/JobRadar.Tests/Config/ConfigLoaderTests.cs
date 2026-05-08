@@ -1,5 +1,6 @@
 using JobRadar.App;
 using JobRadar.App.Config;
+using JobRadar.Core.Models;
 
 namespace JobRadar.Tests.Config;
 
@@ -41,5 +42,28 @@ public sealed class ConfigLoaderTests
         Assert.NotEmpty(config.KeywordsBroad);
         Assert.NotEmpty(config.TechContextHints);
         Assert.True(config.MaxScoringCallsPerRun > 0);
+    }
+
+    [Fact]
+    public void Repo_sources_yml_assigns_RequireOk_to_ATS_sources_and_BestEffort_to_aggregators()
+    {
+        var repoRoot = RepoPaths.FindRepoRoot();
+        var config = ConfigLoader.LoadSources(repoRoot);
+
+        Assert.Equal(LiveCheckMode.RequireOk, config.LiveCheckModeFor("greenhouse"));
+        Assert.Equal(LiveCheckMode.RequireOk, config.LiveCheckModeFor("lever"));
+        Assert.Equal(LiveCheckMode.RequireOk, config.LiveCheckModeFor("ashby"));
+        Assert.Equal(LiveCheckMode.RequireOk, config.LiveCheckModeFor("workable"));
+        Assert.Equal(LiveCheckMode.BestEffort, config.LiveCheckModeFor("remoteok"));
+        Assert.Equal(LiveCheckMode.BestEffort, config.LiveCheckModeFor("remotive"));
+        Assert.Equal(LiveCheckMode.BestEffort, config.LiveCheckModeFor("weworkremotely"));
+        Assert.Equal(LiveCheckMode.BestEffort, config.LiveCheckModeFor("hackernews"));
+    }
+
+    [Fact]
+    public void LiveCheckModeFor_unknown_source_falls_back_to_None()
+    {
+        var config = new JobRadar.Core.Config.SourcesConfig();
+        Assert.Equal(LiveCheckMode.None, config.LiveCheckModeFor("custom-source"));
     }
 }

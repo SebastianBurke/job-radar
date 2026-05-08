@@ -91,6 +91,7 @@ public sealed class SqliteStore : IDedupStore, IAsyncDisposable
         await AddColumnIfMissing("status", "TEXT NOT NULL DEFAULT 'pending'");
         await AddColumnIfMissing("status_at", "TEXT");
         await AddColumnIfMissing("score_json", "TEXT");
+        await AddColumnIfMissing("live_check_at", "TEXT");
 
         // Phase 3: indexes that reference v2-only columns. Safe now that the columns exist.
         await using (var indexes = conn.CreateCommand())
@@ -144,7 +145,7 @@ public sealed class SqliteStore : IDedupStore, IAsyncDisposable
 
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-            SELECT hash, source, company, title, location, url, seen_at, last_seen_at, status, status_at, score_json
+            SELECT hash, source, company, title, location, url, seen_at, last_seen_at, status, status_at, score_json, live_check_at
               FROM seen
              WHERE hash = $hash
              LIMIT 1;
@@ -244,6 +245,22 @@ public sealed class SqliteStore : IDedupStore, IAsyncDisposable
         return affected > 0;
     }
 
+    public async Task MarkLiveCheckedAsync(string hash, DateTimeOffset now, CancellationToken ct = default)
+    {
+        await using var conn = new SqliteConnection(_connectionString);
+        await conn.OpenAsync(ct);
+
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            UPDATE seen
+               SET live_check_at = $now
+             WHERE hash = $hash;
+            """;
+        cmd.Parameters.AddWithValue("$now", now.ToString("O"));
+        cmd.Parameters.AddWithValue("$hash", hash);
+        await cmd.ExecuteNonQueryAsync(ct);
+    }
+
     public async Task<IReadOnlyList<StoredPosting>> ListPendingAsync(CancellationToken ct = default)
     {
         await using var conn = new SqliteConnection(_connectionString);
@@ -251,7 +268,7 @@ public sealed class SqliteStore : IDedupStore, IAsyncDisposable
 
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-            SELECT hash, source, company, title, location, url, seen_at, last_seen_at, status, status_at, score_json
+            SELECT hash, source, company, title, location, url, seen_at, last_seen_at, status, status_at, score_json, live_check_at
               FROM seen
              WHERE status = 'pending';
             """;
@@ -302,11 +319,14 @@ public sealed class SqliteStore : IDedupStore, IAsyncDisposable
         var status = ParseStatus(r.GetString(8));
         DateTimeOffset? statusAt = r.IsDBNull(9) ? null : DateTimeOffset.Parse(r.GetString(9));
         ScoringResult? cached = r.IsDBNull(10) ? null : DeserializeScore(r.GetString(10));
+        DateTimeOffset? liveCheckAt = r.FieldCount > 11 && !r.IsDBNull(11)
+            ? DateTimeOffset.Parse(r.GetString(11))
+            : null;
 
         // The original description is not persisted; carry-overs reconstruct without it.
         // Renderer never reads description, and the hash is stable from the original encounter.
         var posting = new JobPosting(source, company, title, location, url, Description: string.Empty);
-        return new StoredPosting(hash, posting, status, cached, seenAt, lastSeenAt, statusAt);
+        return new StoredPosting(hash, posting, status, cached, seenAt, lastSeenAt, statusAt, liveCheckAt);
     }
 
     private static ScoringResult? DeserializeScore(string json)
@@ -327,6 +347,7 @@ public sealed class SqliteStore : IDedupStore, IAsyncDisposable
         PostingStatus.Applied => "applied",
         PostingStatus.Dismissed => "dismissed",
         PostingStatus.Expired => "expired",
+        PostingStatus.Dead => "dead",
         _ => throw new ArgumentOutOfRangeException(nameof(s), s, "Unknown status"),
     };
 
@@ -336,6 +357,7 @@ public sealed class SqliteStore : IDedupStore, IAsyncDisposable
         "applied" => PostingStatus.Applied,
         "dismissed" => PostingStatus.Dismissed,
         "expired" => PostingStatus.Expired,
+        "dead" => PostingStatus.Dead,
         _ => PostingStatus.Pending,
     };
 }

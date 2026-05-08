@@ -107,7 +107,9 @@ public sealed class WorkableSource : IJobSource
                     Url: j.Url,
                     Description: description,
                     PostedAt: DateTimeOffset.TryParse(j.PublishedOn, out var dt) ? dt : null,
-                    Department: j.Department);
+                    Department: j.Department,
+                    AtsId: j.Shortcode,
+                    AtsToken: company.Token);
             }
 
             _logger.LogInformation("Workable {Company}: {Count} jobs.", company.Name, account.Jobs.Count);
@@ -125,6 +127,7 @@ public sealed class WorkableSource : IJobSource
 
     private sealed class WorkableJob
     {
+        [JsonPropertyName("shortcode")] public string? Shortcode { get; set; }
         [JsonPropertyName("title")] public string? Title { get; set; }
         [JsonPropertyName("url")] public string? Url { get; set; }
         [JsonPropertyName("department")] public string? Department { get; set; }
