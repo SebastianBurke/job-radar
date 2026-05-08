@@ -246,9 +246,17 @@ public sealed class ClaudeScorer : IScorer
             .Replace("{{posting.title}}", posting.Title, StringComparison.Ordinal)
             .Replace("{{posting.company}}", posting.Company, StringComparison.Ordinal)
             .Replace("{{posting.location}}", posting.Location, StringComparison.Ordinal)
+            .Replace("{{posting.location_confidence}}", LocationConfidenceLabel(posting.LocationConfidence), StringComparison.Ordinal)
             .Replace("{{posting.source}}", posting.Source, StringComparison.Ordinal)
             .Replace("{{posting.url}}", posting.Url, StringComparison.Ordinal)
             .Replace("{{posting.description}}", posting.Description, StringComparison.Ordinal);
+
+    private static string LocationConfidenceLabel(LocationConfidence c) => c switch
+    {
+        LocationConfidence.Authoritative => "authoritative (from ATS structured field)",
+        LocationConfidence.AggregatorOnly => "aggregator-tag-only (may not match underlying ATS)",
+        _ => "unknown",
+    };
 
     public static ScoringResult ParseResult(string anthropicResponseBody)
     {

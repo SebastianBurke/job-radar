@@ -151,4 +151,19 @@ public sealed class ClaudeScorerTests
         Assert.Contains("C=Acme", rendered);
         Assert.Contains("D=Lots of .NET", rendered);
     }
+
+    [Fact]
+    public void RenderUserMessage_renders_LocationConfidence_label_per_value()
+    {
+        const string template = "LC={{posting.location_confidence}}";
+        var ats = new JobPosting(
+            "greenhouse", "Acme", ".NET Eng", "Madrid", "https://x", "x",
+            LocationConfidence: LocationConfidence.Authoritative);
+        var aggregator = new JobPosting(
+            "remoteok", "Acme", ".NET Eng", "Remote", "https://x", "x",
+            LocationConfidence: LocationConfidence.AggregatorOnly);
+
+        Assert.Contains("authoritative", ClaudeScorer.RenderUserMessage(template, ats, "", ""));
+        Assert.Contains("aggregator-tag-only", ClaudeScorer.RenderUserMessage(template, aggregator, "", ""));
+    }
 }

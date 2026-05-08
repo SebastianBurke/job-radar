@@ -105,7 +105,8 @@ public sealed class LeverSource : IJobSource
                     PostedAt: p.CreatedAt > 0 ? DateTimeOffset.FromUnixTimeMilliseconds(p.CreatedAt) : null,
                     Department: p.Categories?.Department,
                     AtsId: p.Id,
-                    AtsToken: company.Token);
+                    AtsToken: company.Token,
+                    LocationConfidence: LocationConfidence.Authoritative);
             }
 
             _logger.LogInformation("Lever {Company}: {Count} jobs.", company.Name, items.Count);

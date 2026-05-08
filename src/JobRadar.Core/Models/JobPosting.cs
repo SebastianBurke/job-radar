@@ -14,7 +14,8 @@ public sealed record JobPosting(
     string? Department = null,
     string? RawPayload = null,
     string? AtsId = null,
-    string? AtsToken = null)
+    string? AtsToken = null,
+    LocationConfidence LocationConfidence = LocationConfidence.AggregatorOnly)
 {
     public string Hash => ComputeHash(Company, Title, Description);
 

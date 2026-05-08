@@ -41,6 +41,9 @@ public sealed class GreenhouseSourceTests
             Assert.False(string.IsNullOrWhiteSpace(p.Url));
             Assert.False(string.IsNullOrWhiteSpace(p.Description));
             Assert.DoesNotContain("<", p.Description);
+            // ATS source must mark its location as authoritative.
+            Assert.Equal(Core.Models.LocationConfidence.Authoritative, p.LocationConfidence);
+            Assert.Equal("airbnb", p.AtsToken);
         });
 
         Assert.Single(handler.Requests);

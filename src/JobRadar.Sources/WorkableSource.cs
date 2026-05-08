@@ -109,7 +109,8 @@ public sealed class WorkableSource : IJobSource
                     PostedAt: DateTimeOffset.TryParse(j.PublishedOn, out var dt) ? dt : null,
                     Department: j.Department,
                     AtsId: j.Shortcode,
-                    AtsToken: company.Token);
+                    AtsToken: company.Token,
+                    LocationConfidence: LocationConfidence.Authoritative);
             }
 
             _logger.LogInformation("Workable {Company}: {Count} jobs.", company.Name, account.Jobs.Count);

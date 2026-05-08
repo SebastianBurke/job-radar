@@ -4,7 +4,7 @@ This file is loaded at runtime by `JobRadar.Scoring/ClaudeScorer.cs`. The placeh
 
 - `{{cv}}` — full text of `data/cv.md`
 - `{{eligibility}}` — full text of `data/eligibility.md` (the candidate's work-authorization declaration)
-- `{{posting.title}}`, `{{posting.company}}`, `{{posting.location}}`, `{{posting.source}}`, `{{posting.url}}`, `{{posting.description}}`
+- `{{posting.title}}`, `{{posting.company}}`, `{{posting.location}}`, `{{posting.location_confidence}}`, `{{posting.source}}`, `{{posting.url}}`, `{{posting.description}}`
 
 Send the **System** block as the `system` parameter and the **User** block as the single user message.
 
@@ -29,6 +29,7 @@ The posting may be in English, French, or Spanish. Evaluate it natively in the s
 Title: {{posting.title}}
 Company: {{posting.company}}
 Location: {{posting.location}}
+Location confidence: {{posting.location_confidence}}
 Source: {{posting.source}}
 URL: {{posting.url}}
 
@@ -62,6 +63,16 @@ Evaluate the candidate against this posting. Return JSON matching exactly this s
 - 7: solid fit, candidate matches most requirements
 - 9: strong fit, matches all key requirements plus bonus skills
 - 10: tailor-made; rare
+
+# Location-confidence adjustment
+
+The posting metadata above includes a `Location confidence` line. When it is
+**aggregator-tag-only** AND the location string is a generic remote tag
+("Remote", "Worldwide", "Anywhere") with no country qualifier, downgrade the
+match score by **2 points** (clamped to the 1–10 range). Aggregators frequently
+mistag geo-fenced roles as worldwide, so the posting is worth flagging for
+review but not dropping outright. When the confidence is **authoritative**, do
+not apply this downgrade — trust the ATS-supplied location.
 
 # Eligibility rules
 

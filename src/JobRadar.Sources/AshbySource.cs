@@ -106,7 +106,8 @@ public sealed class AshbySource : IJobSource
                     PostedAt: j.PublishedAt,
                     Department: j.Department,
                     AtsId: j.Id,
-                    AtsToken: company.Token);
+                    AtsToken: company.Token,
+                    LocationConfidence: LocationConfidence.Authoritative);
             }
 
             _logger.LogInformation("Ashby {Company}: {Count} jobs.", company.Name, listing.Jobs.Count);

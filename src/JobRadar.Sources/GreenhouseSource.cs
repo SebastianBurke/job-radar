@@ -102,7 +102,8 @@ public sealed class GreenhouseSource : IJobSource
                     PostedAt: job.UpdatedAt,
                     Department: job.Departments?.FirstOrDefault()?.Name,
                     AtsId: job.Id?.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                    AtsToken: company.Token);
+                    AtsToken: company.Token,
+                    LocationConfidence: LocationConfidence.Authoritative);
             }
 
             _logger.LogInformation("Greenhouse {Company}: {Count} jobs.", company.Name, payload.Jobs.Count);

@@ -27,6 +27,8 @@ public sealed class RemoteOKSourceTests
             Assert.False(string.IsNullOrWhiteSpace(p.Company));
             Assert.False(string.IsNullOrWhiteSpace(p.Title));
             Assert.False(string.IsNullOrWhiteSpace(p.Url));
+            // Aggregator sources may not be authoritative on geography.
+            Assert.Equal(Core.Models.LocationConfidence.AggregatorOnly, p.LocationConfidence);
         });
     }
 }
