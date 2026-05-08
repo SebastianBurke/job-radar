@@ -4,6 +4,12 @@ on:
   schedule:
     - cron: "0 12 * * *"  # 12:00 UTC = 07:00 ET (08:00 EDT)
   workflow_dispatch:
+    inputs:
+      rescore_all:
+        description: "Force re-scoring of every pending posting (bypasses the scoring_inputs_hash cache). Use after a transient Anthropic outage or to flush poisoned fallback verdicts."
+        type: boolean
+        required: false
+        default: false
 
 # Don't trigger ourselves on the seen.db commits we push.
 permissions:
@@ -40,7 +46,13 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
-        run: dotnet run --configuration Release --no-build --project src/JobRadar.Console
+        run: |
+          ARGS=""
+          if [[ "${{ inputs.rescore_all }}" == "true" ]]; then
+            ARGS="--rescore-all"
+            echo "::notice::workflow_dispatch with rescore_all=true; passing --rescore-all to scorer."
+          fi
+          dotnet run --configuration Release --no-build --project src/JobRadar.Console -- $ARGS
 
       - name: Commit updated seen.db
         run: |
