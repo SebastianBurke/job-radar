@@ -104,7 +104,17 @@ public sealed class ClaudeScorer : IScorer
         {
             if (!resp.IsSuccessStatusCode)
             {
-                _logger.LogWarning("Anthropic returned {Status} after retries for {Label}.", (int)resp.StatusCode, label);
+                // Capture the response body so the actual API error message (e.g. the
+                // `invalid_request_error.message` field on a 400) lands in the run logs
+                // — without it, every failure looks the same and there's nothing to act
+                // on. Anthropic 4xx bodies are JSON of shape
+                //   {"type":"error","error":{"type":"...","message":"..."}}
+                string errorBody;
+                try { errorBody = await resp.Content.ReadAsStringAsync(ct); }
+                catch (Exception readEx) { errorBody = $"[failed to read body: {readEx.Message}]"; }
+                _logger.LogWarning(
+                    "Anthropic returned {Status} after retries for {Label}. Body: {Body}",
+                    (int)resp.StatusCode, label, errorBody);
                 return ScoringResult.LowConfidenceFallback($"Anthropic HTTP {(int)resp.StatusCode}.");
             }
             var body = await resp.Content.ReadAsStringAsync(ct);
