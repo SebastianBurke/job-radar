@@ -1,0 +1,51 @@
+# Postings the user has acted on. Edit this file (or use the CLI helpers)
+# and commit before the next scheduled run.
+#
+# `url` is the unique key. `at` is informational. `note` is optional.
+applied:
+- url: https://job-boards.greenhouse.io/sharegateen/jobs/5010337007
+  at: 2026-05-08T16:41:45.5909482+00:00
+  note: 
+- url: https://apply.workable.com/plainconcepts/j/FD8272C44C/
+  at: 2026-05-08T16:41:46.2529125+00:00
+  note: 
+- url: https://job-boards.greenhouse.io/affirm/jobs/7618869003
+  at: 2026-05-08T16:41:46.9364566+00:00
+  note: 
+- url: https://apply.workable.com/genetec-inc/j/3BFC27FA20/
+  at: 2026-05-08T16:41:47.5692437+00:00
+  note: 
+- url: https://ca.linkedin.com/jobs/view/software-engineer-maternity-replacement-14-months-at-securitas-technology-canada-4410067474
+  at: 2026-05-08T16:41:48.2216454+00:00
+  note: 
+dismissed:
+- url: https://remoteok.com/remote-jobs/remote-digital-full-stack-engineer-hr172-smart-working-solutions-1131414
+  at: 2026-05-08T16:41:58.9355920+00:00
+  note: 
+- url: https://apply.workable.com/genetec-inc/j/B06F3A67C4/
+  at: 2026-05-08T16:41:59.5782631+00:00
+  note: 
+- url: https://apply.workable.com/genetec-inc/j/43FC2659CA/
+  at: 2026-05-08T16:42:00.1901222+00:00
+  note: 
+- url: https://apply.workable.com/genetec-inc/j/90086828F5/
+  at: 2026-05-08T16:42:00.8469426+00:00
+  note: 
+- url: https://apply.workable.com/genetec-inc/j/9D6D4FA079/
+  at: 2026-05-08T16:42:01.5171819+00:00
+  note: 
+- url: https://apply.workable.com/genetec-inc/j/376A3CBA80/
+  at: 2026-05-08T16:42:02.2015010+00:00
+  note: 
+- url: https://apply.workable.com/genetec-inc/j/2715136A0C/
+  at: 2026-05-08T16:42:02.8573918+00:00
+  note: 
+- url: https://apply.workable.com/genetec-inc/j/DFFC8957F1/
+  at: 2026-05-08T16:42:03.5059298+00:00
+  note: 
+- url: https://apply.workable.com/genetec-inc/j/DFE49D3057/
+  at: 2026-05-08T16:42:04.1621836+00:00
+  note: 
+- url: https://apply.workable.com/genetec-inc/j/145492924C/
+  at: 2026-05-08T16:42:04.8413932+00:00
+  note: 
