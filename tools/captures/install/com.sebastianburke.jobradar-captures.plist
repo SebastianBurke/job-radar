@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  launchd template for the job-radar captures scraper.
+
+  Replace REPLACE_REPO_PATH with the absolute path to your local
+  job-radar checkout (e.g. /Users/sebastian/code/job-radar). Both
+  occurrences must match.
+
+  The schedule fires at 5, 9, 13, 17, 21 local time. The 5 AM run is
+  the one that beats the radar's 12:00 UTC GitHub Actions cron with a
+  comfortable buffer (so commits land before the radar fetches). The
+  9/13/17/21 fires keep captures fresh through the business day.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.sebastianburke.jobradar-captures</string>
+
+  <key>WorkingDirectory</key>
+  <string>REPLACE_REPO_PATH/tools/captures</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/env</string>
+    <string>pnpm</string>
+    <string>capture</string>
+    <string>--all</string>
+  </array>
+
+  <key>StartCalendarInterval</key>
+  <array>
+    <dict>
+      <key>Hour</key><integer>5</integer>
+      <key>Minute</key><integer>0</integer>
+    </dict>
+    <dict>
+      <key>Hour</key><integer>9</integer>
+      <key>Minute</key><integer>0</integer>
+    </dict>
+    <dict>
+      <key>Hour</key><integer>13</integer>
+      <key>Minute</key><integer>0</integer>
+    </dict>
+    <dict>
+      <key>Hour</key><integer>17</integer>
+      <key>Minute</key><integer>0</integer>
+    </dict>
+    <dict>
+      <key>Hour</key><integer>21</integer>
+      <key>Minute</key><integer>0</integer>
+    </dict>
+  </array>
+
+  <key>StandardOutPath</key>
+  <string>REPLACE_REPO_PATH/tools/captures/.seen/launchd.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>REPLACE_REPO_PATH/tools/captures/.seen/launchd.err.log</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+
+  <key>RunAtLoad</key>
+  <false/>
+  <key>KeepAlive</key>
+  <false/>
+</dict>
+</plist>

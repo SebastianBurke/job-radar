@@ -1,0 +1,25 @@
+{
+  "name": "@job-radar/captures",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Local headless-browser scraper that writes captured postings into data/captured/ for the job-radar pipeline to consume.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "capture": "tsx src/capture.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "playwright": "^1.50.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}
